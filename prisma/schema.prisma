@@ -1,0 +1,536 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMINISTRADOR
+  GERENTE
+  CAJERO
+  MESERO
+}
+
+enum OrderStatus {
+  BORRADOR      // Pedido en proceso, aún se pueden agregar/quitar productos
+  CERRADO       // Pedido pagado, ya es una venta confirmada
+  CANCELADO     // Pedido cancelado
+}
+
+enum TableStatus {
+  DISPONIBLE
+  OCUPADA
+  RESERVADA
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  PAYMENT
+  CLOSE_ORDER
+  CANCEL_ORDER
+}
+
+// ============================================
+// USUARIOS Y AUTENTICACIÓN
+// ============================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime? // Soft delete
+
+  // Relación opcional con Personal (si el usuario también es empleado)
+  personal  Personal? @relation(fields: [personalId], references: [id])
+  personalId String?  @unique
+
+  // Relaciones de auditoría
+  ordersCreated    Order[]           @relation("OrderCreatedBy")
+  ordersAttended   Order[]           @relation("OrderAttendedBy")
+  ordersClosed     Order[]           @relation("OrderClosedBy")
+  paymentsCreated  Payment[]         @relation("PaymentCreatedBy")
+  auditLogs        AuditLog[]
+  staffPayments    StaffPayment[]    @relation("StaffPaymentCreatedBy")
+  orderHistories   OrderHistory[]
+  orderItemsAdded  OrderItem[]       @relation("OrderItemAddedBy")
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================
+// PERSONAL Y RECURSOS HUMANOS
+// ============================================
+
+model PersonalType {
+  id          String     @id @default(uuid())
+  name        String     @unique // CAJERO, MESERO, COCINERO, SERVICIO, etc.
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  staff       Personal[]
+
+  @@map("personal_types")
+}
+
+model Personal {
+  id            String       @id @default(uuid())
+  name          String
+  phone         String?
+  address       String?
+  hireDate      DateTime     @default(now())
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  // Tipo de personal (personalizable)
+  personalType   PersonalType @relation(fields: [personalTypeId], references: [id])
+  personalTypeId String
+
+  // Relación opcional con usuario del sistema
+  user           User?
+
+  // Pagos realizados a este empleado
+  payments       StaffPayment[]
+
+  @@index([personalTypeId])
+  @@index([isActive])
+  @@map("personal")
+}
+
+model StaffPayment {
+  id          String    @id @default(uuid())
+  amount      Decimal   @db.Decimal(10, 2)
+  paymentDate DateTime  @default(now())
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Empleado que recibe el pago
+  staff       Personal  @relation(fields: [staffId], references: [id])
+  staffId     String
+
+  // Usuario que registra el pago
+  createdBy   User      @relation("StaffPaymentCreatedBy", fields: [createdById], references: [id])
+  createdById String
+
+  @@index([staffId])
+  @@index([paymentDate])
+  @@map("staff_payments")
+}
+
+// ============================================
+// CATÁLOGO DE PRODUCTOS
+// ============================================
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique // PATO, EXTRAS, BEBIDAS, etc.
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+model StockGroup {
+  id          String    @id @default(uuid())
+  name        String    @unique // "Pato Preparación Clásica", "Pato Cantonesa", etc.
+  description String?
+  stock       Int       @default(0) // Stock actual del grupo
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  products    Product[]
+
+  @@map("stock_groups")
+}
+
+model Product {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal   @db.Decimal(10, 2)
+  isAvailable Boolean   @default(true) // Disponibilidad temporal
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Categoría del producto
+  category      Category   @relation(fields: [categoryId], references: [id])
+  categoryId    String
+
+  // Grupo de stock (opcional, para productos que comparten inventario)
+  stockGroup    StockGroup? @relation(fields: [stockGroupId], references: [id])
+  stockGroupId  String?
+
+  // Stock individual (si no pertenece a un grupo)
+  individualStock Int?
+
+  // Relaciones
+  orderItems    OrderItem[]
+  orderItemHistories OrderItemHistory[]
+
+  @@index([categoryId])
+  @@index([stockGroupId])
+  @@index([isAvailable])
+  @@map("products")
+}
+
+// ============================================
+// GESTIÓN DE MESAS Y ÁREAS
+// ============================================
+
+model Area {
+  id          String    @id @default(uuid())
+  name        String    @unique // EXTERIOR, SALON, etc.
+  description String?
+  isVirtual   Boolean   @default(false) // true para DELIVERY, RECOGER, etc.
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tables      Table[]
+
+  @@map("areas")
+}
+
+model Table {
+  id          String      @id @default(uuid())
+  number      Int         // Número de mesa (puede ser 0 para delivery/recoger)
+  status      TableStatus @default(DISPONIBLE)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  // Área de la mesa
+  area        Area?       @relation(fields: [areaId], references: [id])
+  areaId      String?
+
+  // Pedidos asociados a esta mesa
+  orders      Order[]
+
+  @@unique([areaId, number]) // No puede haber dos mesas con el mismo número en la misma área
+  @@index([status])
+  @@map("tables")
+}
+
+// ============================================
+// PEDIDOS Y VENTAS
+// ============================================
+
+model Order {
+  id              String       @id @default(uuid())
+  orderNumber     String       @unique // Número de orden correlativo
+  status          OrderStatus  @default(BORRADOR)
+  serviceType     String       @default("MESA")  // Heredado de Area.name
+  
+  // Montos
+  subtotal        Decimal      @db.Decimal(10, 2) @default(0) // Suma de productos
+  discountAmount  Decimal      @db.Decimal(10, 2) @default(0) // Descuento general
+  tipAmount       Decimal      @db.Decimal(10, 2) @default(0) // Propina (opcional)
+  total           Decimal      @db.Decimal(10, 2) @default(0) // Total a pagar
+  
+  // Fechas importantes
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  closedAt        DateTime?    // Fecha de cierre (pago completado)
+  deletedAt       DateTime?
+
+  // Mesa asociada
+  table           Table        @relation(fields: [tableId], references: [id])
+  tableId         String
+
+  // Usuario que creó el pedido (mesero o cajero)
+  createdBy       User         @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdById     String
+
+  // Usuario que atendió (mesero principal)
+  attendedBy      User?        @relation("OrderAttendedBy", fields: [attendedById], references: [id])
+  attendedById    String?
+
+  // Usuario que cerró/cobró el pedido (cajero)
+  closedBy        User?        @relation("OrderClosedBy", fields: [closedById], references: [id])
+  closedById      String?
+
+  // Relaciones
+  items           OrderItem[]
+  payments        Payment[]
+  auditLogs       AuditLog[]
+  histories       OrderHistory[]
+
+  @@index([status])
+  @@index([tableId])
+  @@index([createdById])
+  @@index([attendedById])
+  @@index([closedById])
+  @@index([createdAt])
+  @@index([serviceType])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String    @id @default(uuid())
+  quantity        Int
+  unitPrice       Decimal   @db.Decimal(10, 2) // Precio al momento de la venta
+  discountAmount  Decimal   @db.Decimal(10, 2) @default(0) // Descuento individual del producto
+  subtotal        Decimal   @db.Decimal(10, 2) // (quantity * unitPrice) - discountAmount
+  notes           String?   // Notas especiales (ej: "sin cebolla")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Producto
+  product         Product   @relation(fields: [productId], references: [id])
+  productId       String
+
+  // Pedido
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String
+
+  // Auditoría: quién agregó este item
+  addedBy         User      @relation("OrderItemAddedBy", fields: [addedById], references: [id])
+  addedById       String
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([addedById])
+  @@map("order_items")
+}
+
+// ============================================
+// PAGOS
+// ============================================
+
+model PaymentMethod {
+  id          String    @id @default(uuid())
+  name        String    @unique // EFECTIVO, TRANSFERENCIA BANCARIA, TARJETA, etc.
+  code        String    @unique // CASH, TRANSFER, CARD - para programación
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  payments    Payment[]
+
+  @@map("payment_methods")
+}
+
+// ============================================
+// DENOMINACIONES DE EFECTIVO (MONEDAS Y BILLETES)
+// ============================================
+
+model CashDenomination {
+  id        String    @id @default(uuid())
+  value     Decimal   @db.Decimal(10, 2) // Valor en Bs: 1, 2, 5, 10, 20, 50, 100, 200
+  type      String    // "COIN" o "BILL"
+  quantity  Int       @default(0) // Cantidad disponible en caja
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([value, type])
+  @@index([isActive])
+  @@map("cash_denominations")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  
+  // Montos
+  amountReceived  Decimal       @db.Decimal(10, 2) // Monto recibido del cliente
+  amountApplied   Decimal       @db.Decimal(10, 2) // Monto aplicado a la cuenta
+  changeAmount    Decimal?      @db.Decimal(10, 2) // Cambio a dar (solo EFECTIVO)
+  tipAmount       Decimal       @db.Decimal(10, 2) @default(0) // Propina incluida
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Pedido al que pertenece este pago
+  order           Order         @relation(fields: [orderId], references: [id])
+  orderId         String
+
+  // Método de pago
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodId String
+
+  // Usuario que registró el pago
+  createdBy       User          @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  createdById     String
+
+  @@index([orderId])
+  @@index([paymentMethodId])
+  @@index([createdById])
+  @@map("payments")
+}
+
+// ============================================
+// AUDITORÍA E HISTORIAL
+// ============================================
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  action      AuditAction
+  tableName   String      // Nombre de la tabla afectada
+  recordId    String      // ID del registro afectado
+  oldValues   Json?       // Valores anteriores (para UPDATE/DELETE)
+  newValues   Json?       // Valores nuevos (para CREATE/UPDATE)
+  description String?     // Descripción legible de la acción
+  createdAt   DateTime    @default(now())
+
+  // Usuario que realizó la acción
+  user        User        @relation(fields: [userId], references: [id])
+  userId      String
+
+  // Pedido relacionado (si aplica)
+  order       Order?      @relation(fields: [orderId], references: [id])
+  orderId     String?
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([tableName, recordId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model OrderHistory {
+  id          String    @id @default(uuid())
+  action      String    // "ADDED", "REMOVED", "UPDATED", "DISCOUNT_APPLIED"
+  description String    // Descripción legible: "Agregó 2x Pato Criollo"
+  metadata    Json?     // Datos adicionales del cambio
+  createdAt   DateTime  @default(now())
+
+  // Pedido afectado
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+
+  // Usuario que realizó el cambio
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("order_histories")
+}
+
+model OrderItemHistory {
+  id          String    @id @default(uuid())
+  action      String    // "ADDED", "REMOVED", "QUANTITY_CHANGED"
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  // Producto
+  product     Product   @relation(fields: [productId], references: [id])
+  productId   String
+
+  // Referencia al pedido (sin relación directa para evitar complejidad)
+  orderId     String
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("order_item_histories")
+}
+
+// ============================================
+// MÉTRICAS Y BUSINESS INTELLIGENCE
+// ============================================
+
+model DailyMetrics {
+  id                  String   @id @default(uuid())
+  date                DateTime @unique @db.Date
+  
+  // Ventas
+  totalSales          Decimal  @db.Decimal(10, 2) @default(0)
+  totalOrders         Int      @default(0)
+  totalDiscount       Decimal  @db.Decimal(10, 2) @default(0)
+  totalTips           Decimal  @db.Decimal(10, 2) @default(0)
+  averageOrderValue   Decimal  @db.Decimal(10, 2) @default(0)
+  
+  // Servicios
+  mesaOrders          Int      @default(0)
+  deliveryOrders      Int      @default(0)
+  recogerOrders       Int      @default(0)
+  
+  // Pagos
+  cashPayments        Decimal  @db.Decimal(10, 2) @default(0)
+  cardPayments        Decimal  @db.Decimal(10, 2) @default(0)
+  transferPayments    Decimal  @db.Decimal(10, 2) @default(0)
+  
+  // Staff
+  totalStaffPayments  Decimal  @db.Decimal(10, 2) @default(0)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([date])
+  @@map("daily_metrics")
+}
+
+// ============================================
+// GASTOS Y FINANZAS
+// ============================================
+
+model ExpenseCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  expenses    Expense[]
+
+  @@map("expense_categories")
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  description String
+  amount      Decimal         @db.Decimal(10, 2)
+  expenseDate DateTime        @default(now())
+  receipt     String?         // URL o referencia del comprobante
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  categoryId  String
+
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@map("expenses")
+}
