@@ -37,6 +37,9 @@ Build output is `dist/main.js` (`node dist/main`). `tsconfig.build.json` intenti
 - Socket.io gateways authenticate the handshake, verify the user is active, and emit to rooms
   (`table-<id>`, `order-<id>`, `tables:status`) — never `server.emit` globally.
 - `prisma.config.ts` (new-style) drives the CLI and holds the seed command.
+- **Logs:** `AppLogger` prints to stdout and forwards to `LogsService`, which persists to
+  `system_logs` (buffered, non-blocking) with a 3-day retention cron. See `docs/LOGGING.md`.
+  Never log secrets/tokens/headers.
 
 ## Layout
 

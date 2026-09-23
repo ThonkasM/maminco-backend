@@ -5,7 +5,7 @@ import { PrintingService } from '../printing/printing.service';
 import { AiService } from '../ai/ai.service';
 import { OrdersGateway } from '../orders/orders.gateway';
 import { PaymentsGateway } from '../payments/payments.gateway';
-import { AppLogger, LogEntry } from './app-logger.service';
+import { LogsService, LogQuery } from './logs.service';
 
 export interface ServiceHealth {
   reachable: boolean;
@@ -25,7 +25,7 @@ export class SystemService {
     private readonly ai: AiService,
     private readonly ordersGateway: OrdersGateway,
     private readonly paymentsGateway: PaymentsGateway,
-    private readonly appLogger: AppLogger,
+    private readonly logs: LogsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -113,8 +113,16 @@ export class SystemService {
     }
   }
 
-  getLogs(limit: number, level?: LogEntry['level']): LogEntry[] {
-    return this.appLogger.getRecent(limit, level);
+  getLogs(query: LogQuery) {
+    return this.logs.query(query);
+  }
+
+  getLogStats() {
+    return this.logs.stats();
+  }
+
+  pruneLogs() {
+    return this.logs.prune();
   }
 
   getConfig() {

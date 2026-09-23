@@ -1,6 +1,14 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { SystemService } from './system.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -17,6 +25,14 @@ class LogsQueryDto {
   @IsOptional()
   @IsIn(['log', 'error', 'warn', 'debug', 'verbose', 'fatal'])
   level?: 'log' | 'error' | 'warn' | 'debug' | 'verbose' | 'fatal';
+
+  @IsOptional()
+  @IsDateString()
+  since?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 @Controller('api/system')
@@ -38,10 +54,31 @@ export class SystemController {
   @Get('logs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMINISTRATOR')
-  getLogs(@Query() query: LogsQueryDto) {
-    return {
-      data: this.systemService.getLogs(query.limit ?? 100, query.level),
-    };
+  async getLogs(@Query() query: LogsQueryDto) {
+    const [result, stats] = await Promise.all([
+      this.systemService.getLogs({
+        limit: query.limit ?? 100,
+        level: query.level,
+        since: query.since ? new Date(query.since) : undefined,
+        search: query.search,
+      }),
+      this.systemService.getLogStats(),
+    ]);
+    return { ...result, retentionDays: stats.retentionDays };
+  }
+
+  @Get('logs/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRATOR')
+  getLogStats() {
+    return this.systemService.getLogStats();
+  }
+
+  @Post('logs/prune')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRATOR')
+  pruneLogs() {
+    return this.systemService.pruneLogs();
   }
 
   @Get('config')

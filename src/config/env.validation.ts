@@ -37,6 +37,26 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   AI_SERVICE_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  LOG_DB_ENABLED?: string;
+
+  @IsOptional()
+  @IsString()
+  LOG_LEVEL?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  LOG_FLUSH_INTERVAL_MS?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  LOG_RETENTION_DAYS?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  LOG_MAX_ROWS?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

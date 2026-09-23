@@ -1,34 +1,25 @@
 import { ConsoleLogger, Injectable, LogLevel } from '@nestjs/common';
-
-export interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  context?: string;
-}
-
-const MAX_ENTRIES = 500;
+import { LogsService } from './logs.service';
 
 /**
- * Nest logger that also keeps a bounded in-memory ring buffer so the admin UI
- * can display recent server logs without touching the filesystem.
+ * Nest logger that prints to the console (stdout, captured by Docker) and
+ * forwards entries to `LogsService` for persistence + retention.
  */
 @Injectable()
 export class AppLogger extends ConsoleLogger {
-  private readonly entries: LogEntry[] = [];
+  constructor(private readonly logsService: LogsService) {
+    super();
+  }
 
   private record(level: LogLevel, message: unknown, context?: string) {
     const text =
       typeof message === 'string' ? message : this.safeStringify(message);
-    this.entries.push({
+    this.logsService?.enqueue({
       timestamp: new Date().toISOString(),
       level,
       message: text,
       context: context ?? this.context,
     });
-    if (this.entries.length > MAX_ENTRIES) {
-      this.entries.splice(0, this.entries.length - MAX_ENTRIES);
-    }
   }
 
   private safeStringify(value: unknown): string {
@@ -67,12 +58,5 @@ export class AppLogger extends ConsoleLogger {
   override fatal(message: unknown, context?: string) {
     this.record('fatal', message, context);
     super.fatal(message, context);
-  }
-
-  getRecent(limit = 100, level?: LogLevel): LogEntry[] {
-    const filtered = level
-      ? this.entries.filter((entry) => entry.level === level)
-      : this.entries;
-    return filtered.slice(-limit).reverse();
   }
 }

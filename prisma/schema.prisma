@@ -534,3 +534,20 @@ model Expense {
   @@index([expenseDate])
   @@map("expenses")
 }
+
+// ============================================
+// OBSERVABILIDAD / LOGS DEL SISTEMA
+// ============================================
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  level     String // log | error | warn | debug | verbose | fatal
+  context   String?
+  message   String
+  meta      Json?
+
+  @@index([timestamp])
+  @@index([level])
+  @@map("system_logs")
+}
