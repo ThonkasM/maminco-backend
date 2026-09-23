@@ -18,15 +18,15 @@ describe('RolesGuard', () => {
   };
 
   it('allows access when no roles are required', () => {
-    expect(build(undefined).canActivate(createContext({ role: 'WAITER' }))).toBe(
-      true,
-    );
+    expect(
+      build(undefined).canActivate(createContext({ role: 'WAITER' })),
+    ).toBe(true);
   });
 
   it('denies access when the user has no role', () => {
-    expect(() => build(['MANAGER']).canActivate(createContext(undefined))).toThrow(
-      ForbiddenException,
-    );
+    expect(() =>
+      build(['MANAGER']).canActivate(createContext(undefined)),
+    ).toThrow(ForbiddenException);
   });
 
   it('denies access when the role does not match', () => {
