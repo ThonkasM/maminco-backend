@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateProductDto,
@@ -71,7 +72,7 @@ export class ProductsService {
       data: {
         name: createProductDto.name,
         description: createProductDto.description,
-        price: createProductDto.price, // Precio entero (sin Decimal)
+        price: new Prisma.Decimal(createProductDto.price),
         categoryId: createProductDto.categoryId,
         stockGroupId: createProductDto.stockGroupId || null,
         individualStock: createProductDto.individualStock || null,
@@ -288,7 +289,7 @@ export class ProductsService {
     }
 
     if (updateProductDto.price !== undefined) {
-      updateData.price = updateProductDto.price; // Precio entero (sin Decimal)
+      updateData.price = new Prisma.Decimal(updateProductDto.price);
     }
 
     if (updateProductDto.categoryId !== undefined) {
@@ -454,7 +455,7 @@ export class ProductsService {
       stockType: product.individualStock !== null ? 'INDIVIDUAL' : 'GROUP',
       availableStock,
       groupName: product.stockGroup?.name,
-      price: product.price,
+      price: Number(product.price),
     };
   }
 
@@ -463,7 +464,7 @@ export class ProductsService {
       id: product.id,
       name: product.name,
       description: product.description,
-      price: product.price,
+      price: Number(product.price),
       categoryId: product.categoryId,
       categoryName: product.category?.name || 'Sin categoría',
       stockGroupId: product.stockGroupId,

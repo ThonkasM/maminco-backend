@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsUUID,
+  IsNumber,
   Min,
   IsInt,
 } from 'class-validator';
@@ -18,10 +19,13 @@ export class CreateProductDto {
   description?: string;
 
   @Type(() => Number)
-  @IsInt({ message: 'Price must be an integer (no decimals)' })
+  @IsNumber(
+    { maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false },
+    { message: 'Price must be a number with at most 2 decimals' },
+  )
   @Min(0, { message: 'Price must be >= 0' })
   @IsNotEmpty()
-  price: number; // Precio entero (sin decimales)
+  price: number; // Money in Bs., up to 2 decimals
 
   @IsUUID()
   @IsNotEmpty()

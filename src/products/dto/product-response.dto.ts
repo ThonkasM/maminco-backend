@@ -1,10 +1,8 @@
-import { Decimal } from '@prisma/client/runtime/library';
-
 export class ProductResponseDto {
   id: string;
   name: string;
   description?: string;
-  price: Decimal;
+  price: number;
   categoryId: string;
   categoryName: string; // Incluimos el nombre de la categoría
   stockGroupId?: string;
