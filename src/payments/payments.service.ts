@@ -9,6 +9,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { money } from '../common/money';
 import { PaymentsGateway } from './payments.gateway';
+import { OrdersGateway } from '../orders/orders.gateway';
+import { OrdersService } from '../orders/orders.service';
 import {
   ProcessPaymentDto,
   ListPaymentsQueryDto,
@@ -25,6 +27,8 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private paymentsGateway: PaymentsGateway,
+    private ordersGateway: OrdersGateway,
+    private ordersService: OrdersService,
   ) {}
 
   /**
@@ -261,6 +265,7 @@ export class PaymentsService {
       this.logger.log(
         `Orden #${order.orderNumber} cerrada. Total pagado: $${totalPaidNow.toFixed(2)}`,
       );
+      await this.emitOrderClosedRealtime(orderId, order.tableId);
     }
 
     this.paymentsGateway.emitPaymentProcessed(orderId, order.tableId, {
@@ -301,6 +306,31 @@ export class PaymentsService {
       pendingBalance: Number(remainingBalance),
       isPaid: shouldCloseOrder,
     };
+  }
+
+  /**
+   * Notifica a las salas de órdenes/mesas que la orden se cerró por pago, para
+   * que otras pantallas (POS web/móvil con la orden abierta) dejen de mostrarla
+   * como activa y liberen la mesa.
+   */
+  private async emitOrderClosedRealtime(orderId: string, tableId: string) {
+    const [updatedOrder, tablesState] = await Promise.all([
+      this.ordersService.findById(orderId).catch(() => null),
+      this.ordersService.getAllTablesState().catch(() => []),
+    ]);
+
+    this.ordersGateway.emitOrderStatusChanged(orderId, tableId, 'CLOSED');
+    if (updatedOrder) {
+      this.ordersGateway.emitTableStateUpdated(tableId, updatedOrder);
+    }
+    this.ordersGateway.emitTableStatusChanged(tableId, 'AVAILABLE', {
+      number: updatedOrder?.tableName,
+      tableName: updatedOrder?.tableName
+        ? `Mesa ${updatedOrder.tableName}`
+        : undefined,
+      areaId: updatedOrder?.areaId,
+    });
+    this.ordersGateway.emitAllTablesState(tablesState);
   }
 
   /**
