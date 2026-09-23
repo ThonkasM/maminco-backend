@@ -3,6 +3,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { AppLogger } from './system/app-logger.service';
 import {
   SocketIoAdapter,
   resolveCorsOrigins,
@@ -10,7 +11,8 @@ import {
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(AppLogger));
 
   app.use(helmet());
   app.useWebSocketAdapter(new SocketIoAdapter(app));

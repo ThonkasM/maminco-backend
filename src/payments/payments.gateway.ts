@@ -55,9 +55,16 @@ export class PaymentsGateway
     }
   }
 
-  handleDisconnect(_client: Socket) {
-    this.logger.debug('Cliente desconectado de /payments');
-  }
+    handleDisconnect(_client: Socket) {
+        this.logger.debug('Cliente desconectado de /payments');
+    }
+
+    /** Number of clients currently connected to this namespace. */
+    getConnectedClients(): number {
+        const sockets = (this.server as unknown as { sockets?: Map<string, unknown> })
+            ?.sockets;
+        return sockets?.size ?? 0;
+    }
 
   emitPaymentProcessed(
     orderId: string,

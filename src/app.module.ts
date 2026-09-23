@@ -17,6 +17,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PrintingModule } from './printing/printing.module';
 import { ReportsModule } from './reports/reports.module';
 import { AiModule } from './ai/ai.module';
+import { SystemModule } from './system/system.module';
 import { validate } from './config/env.validation';
 
 @Module({
@@ -45,6 +46,7 @@ import { validate } from './config/env.validation';
     PrintingModule,
     ReportsModule,
     AiModule,
+    SystemModule,
   ],
   controllers: [AppController],
   providers: [

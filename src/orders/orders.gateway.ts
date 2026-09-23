@@ -80,6 +80,13 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  /** Number of authenticated clients currently connected to this namespace. */
+  getConnectedClients(): number {
+    const sockets = (this.server as unknown as { sockets?: Map<string, unknown> })
+      ?.sockets;
+    return sockets?.size ?? 0;
+  }
+
   emitOrderCreated(tableId: string, order: any) {
     this.server.to(`table-${tableId}`).emit('order:created', {
       orderId: order.id,
