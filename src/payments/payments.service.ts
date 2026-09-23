@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { money } from '../common/money';
 import { PaymentsGateway } from './payments.gateway';
 import {
   ProcessPaymentDto,
@@ -81,7 +82,7 @@ export class PaymentsService {
       throw new NotFoundException(`Orden ${orderId} no encontrada`);
     }
 
-    const totalDue = order.total.toNumber();
+    const totalDue = order.total;
 
     // 2. Validar que la orden no esté ya pagada ni cancelada
     if (order.status === 'CLOSED') {
@@ -107,15 +108,16 @@ export class PaymentsService {
       throw new BadRequestException('Método de pago inválido o inactivo');
     }
 
-    // 4. Calcular cuánto ya está pagado
+    // 4. Calcular cuánto ya está pagado (Decimal, sin floats)
     const totalPaidAlready = order.payments.reduce(
-      (sum, p) => sum + p.amountApplied.toNumber(),
-      0,
+      (sum, p) => sum.add(p.amountApplied),
+      new Prisma.Decimal(0),
     );
-    const pendingBalance = totalDue - totalPaidAlready;
+    const pendingBalance = money(totalDue.sub(totalPaidAlready));
+    const amountReceived = money(dto.amountReceived);
 
     // 5. Validar que el pago no sea 0 o negativo
-    if (dto.amountReceived <= 0) {
+    if (amountReceived.lte(0)) {
       return {
         status: 'ERROR',
         message: 'El monto del pago debe ser mayor a 0',
@@ -126,54 +128,54 @@ export class PaymentsService {
     // 6. Lógica específica por método de pago (se decide por `code`, no por nombre:
     //    los nombres son datos de negocio editables y pueden cambiar)
     const methodCode = paymentMethod.code.toUpperCase();
-    let changeAmount: number | null = null;
-    let tipAmount: number = 0;
-    let amountApplied: number = 0;
+    let changeAmount: Prisma.Decimal | null = null;
+    let tipAmount = new Prisma.Decimal(0);
+    let amountApplied = new Prisma.Decimal(0);
     let shouldCloseOrder = false;
-    let remainingBalance = 0;
+    let remainingBalance = new Prisma.Decimal(0);
 
     // Determinar cuánto aplicar de este pago
     // Si el pago es mayor que lo pendiente, el excedente es cambio/propina
-    if (dto.amountReceived >= pendingBalance) {
+    if (amountReceived.gte(pendingBalance)) {
       // Este es el pago final
       amountApplied = pendingBalance;
-      const excess = dto.amountReceived - pendingBalance;
+      const excess = money(amountReceived.sub(pendingBalance));
 
       // CASH: El excedente es cambio
       if (methodCode === 'CASH') {
         changeAmount = excess;
-        tipAmount = 0;
+        tipAmount = new Prisma.Decimal(0);
       }
       // TRANSFER o CARD: Pregunta si el excedente es propina
       else if (methodCode === 'TRANSFER' || methodCode === 'CARD') {
-        if (excess > 0 && !dto.isExtraTip) {
+        if (excess.gt(0) && !dto.isExtraTip) {
           // Pedir confirmación si hay excedente
           return {
             status: 'PENDING_CONFIRMATION',
             message: `Monto mayor al saldo pendiente. ¿La diferencia de $${excess.toFixed(2)} es propina?`,
-            difference: excess,
-            amountReceived: dto.amountReceived,
-            totalDue: pendingBalance,
+            difference: Number(excess),
+            amountReceived: Number(amountReceived),
+            totalDue: Number(pendingBalance),
             pendingBalance: 0,
           };
         }
         // Si está confirmada como propina o no hay excedente
-        tipAmount = dto.isExtraTip ? excess : 0;
+        tipAmount = dto.isExtraTip ? excess : new Prisma.Decimal(0);
         changeAmount = null;
       }
 
       shouldCloseOrder = true;
-      remainingBalance = 0;
+      remainingBalance = new Prisma.Decimal(0);
     } else {
       // Pago parcial
-      amountApplied = dto.amountReceived;
+      amountApplied = amountReceived;
       changeAmount = null;
-      tipAmount = 0;
+      tipAmount = new Prisma.Decimal(0);
       shouldCloseOrder = false;
-      remainingBalance = pendingBalance - amountApplied;
+      remainingBalance = money(pendingBalance.sub(amountApplied));
     }
 
-    const totalPaidNow = totalPaidAlready + amountApplied;
+    const totalPaidNow = money(totalPaidAlready.add(amountApplied));
 
     // 7. Persistir pago + cierre + auditoría de forma atómica.
     //    El cierre usa updateMany condicionado al estado DRAFT para evitar
@@ -181,11 +183,10 @@ export class PaymentsService {
     const payment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.payment.create({
         data: {
-          amountReceived: new Prisma.Decimal(dto.amountReceived),
-          amountApplied: new Prisma.Decimal(amountApplied),
-          changeAmount:
-            changeAmount !== null ? new Prisma.Decimal(changeAmount) : null,
-          tipAmount: new Prisma.Decimal(tipAmount),
+          amountReceived,
+          amountApplied,
+          changeAmount,
+          tipAmount,
           order: { connect: { id: orderId } },
           paymentMethod: { connect: { id: dto.paymentMethodId } },
           createdBy: { connect: { id: userId } },
@@ -203,9 +204,7 @@ export class PaymentsService {
             status: 'CLOSED',
             closedAt: new Date(),
             closedById: userId,
-            ...(tipAmount > 0
-              ? { tipAmount: new Prisma.Decimal(tipAmount) }
-              : {}),
+            ...(tipAmount.gt(0) ? { tipAmount } : {}),
           },
         });
 
@@ -221,12 +220,12 @@ export class PaymentsService {
         });
       }
 
-      let auditDescription = `Pago de $${amountApplied} por ${paymentMethod.name}`;
+      let auditDescription = `Pago de $${amountApplied.toFixed(2)} por ${paymentMethod.name}`;
       if (shouldCloseOrder) {
         auditDescription += ` (PAGO FINAL)`;
         if (changeAmount)
           auditDescription += ` - Cambio: $${changeAmount.toFixed(2)}`;
-        if (tipAmount)
+        if (tipAmount.gt(0))
           auditDescription += ` - Propina: $${tipAmount.toFixed(2)}`;
       } else {
         auditDescription += ` (PAGO PARCIAL) - Saldo pendiente: $${remainingBalance.toFixed(2)}`;
@@ -242,10 +241,10 @@ export class PaymentsService {
           order: { connect: { id: orderId } },
           newValues: {
             paymentId: created.id,
-            amountReceived: dto.amountReceived,
-            amountApplied,
-            changeAmount: changeAmount || null,
-            tipAmount,
+            amountReceived: Number(amountReceived),
+            amountApplied: Number(amountApplied),
+            changeAmount: changeAmount ? Number(changeAmount) : null,
+            tipAmount: Number(tipAmount),
             method: paymentMethod.name,
           },
         },
@@ -255,7 +254,7 @@ export class PaymentsService {
     });
 
     this.logger.log(
-      `Pago registrado: $${amountApplied} - Método: ${paymentMethod.name} - Cambio: ${changeAmount ?? 'N/A'} - Saldo pendiente: $${remainingBalance.toFixed(2)}`,
+      `Pago registrado: $${amountApplied.toFixed(2)} - Método: ${paymentMethod.name} - Cambio: ${changeAmount ? changeAmount.toFixed(2) : 'N/A'} - Saldo pendiente: $${remainingBalance.toFixed(2)}`,
     );
 
     if (shouldCloseOrder) {
@@ -266,10 +265,10 @@ export class PaymentsService {
 
     this.paymentsGateway.emitPaymentProcessed(orderId, order.tableId, {
       paymentId: payment.id,
-      amount: amountApplied,
+      amount: Number(amountApplied),
       method: paymentMethod.name,
-      changeAmount: changeAmount || 0,
-      tipAmount,
+      changeAmount: changeAmount ? Number(changeAmount) : 0,
+      tipAmount: Number(tipAmount),
       isPaid: shouldCloseOrder,
       paidBy: order.createdBy.name,
     });
@@ -279,7 +278,7 @@ export class PaymentsService {
       message = `Pago final registrado. Orden completamente pagada.`;
       if (changeAmount)
         message += ` Cambio a dar: $${changeAmount.toFixed(2)}.`;
-      if (tipAmount)
+      if (tipAmount.gt(0))
         message += ` Propina registrada: $${tipAmount.toFixed(2)}.`;
     } else {
       message = `Pago parcial registrado: $${amountApplied.toFixed(2)}. Saldo pendiente: $${remainingBalance.toFixed(2)}.`;
@@ -291,15 +290,15 @@ export class PaymentsService {
       orderId: order.id,
       orderNumber: order.orderNumber,
       paymentId: payment.id,
-      amountReceived: dto.amountReceived,
-      amountApplied,
-      changeAmount: changeAmount || null,
-      tipAmount,
-      totalDue,
+      amountReceived: Number(amountReceived),
+      amountApplied: Number(amountApplied),
+      changeAmount: changeAmount ? Number(changeAmount) : null,
+      tipAmount: Number(tipAmount),
+      totalDue: Number(totalDue),
       paymentMethod: paymentMethod.name,
       orderStatus: shouldCloseOrder ? 'CLOSED' : 'DRAFT',
-      totalPaidSoFar: totalPaidNow,
-      pendingBalance: remainingBalance,
+      totalPaidSoFar: Number(totalPaidNow),
+      pendingBalance: Number(remainingBalance),
       isPaid: shouldCloseOrder,
     };
   }

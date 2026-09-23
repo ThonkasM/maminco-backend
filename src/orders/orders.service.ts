@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { nonNegative } from '../common/money';
 import { OrdersGateway } from './orders.gateway';
 import { PrintingService } from '../printing/printing.service';
 import {
@@ -54,25 +55,37 @@ export class OrdersService {
   }
 
   /**
-   * Calcula el subtotal de una orden
+   * Subtotal de una orden: Σ (unitPrice × qty − discount), en Decimal (2 dp).
    */
-  private calculateSubtotal(items: any[]): number {
-    return items.reduce((sum, item) => {
-      const itemTotal = Number(item.unitPrice) * item.quantity;
-      const itemDiscount = Number(item.discountAmount) || 0;
-      return sum + itemTotal - itemDiscount;
-    }, 0);
+  private calculateSubtotal(
+    items: Array<{
+      unitPrice: Prisma.Decimal.Value;
+      quantity: number;
+      discountAmount?: Prisma.Decimal.Value | null;
+    }>,
+  ): Prisma.Decimal {
+    return items
+      .reduce((sum, item) => {
+        const line = new Prisma.Decimal(item.unitPrice).mul(item.quantity);
+        const discount = new Prisma.Decimal(item.discountAmount ?? 0);
+        return sum.add(line).sub(discount);
+      }, new Prisma.Decimal(0))
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
   }
 
   /**
-   * Calcula el total final de una orden
+   * Total de una orden: max(0, subtotal − discount + tip), en Decimal (2 dp).
    */
   private calculateTotal(
-    subtotal: number,
-    discount: number,
-    tip: number,
-  ): number {
-    return Math.max(0, subtotal - discount + tip);
+    subtotal: Prisma.Decimal.Value,
+    discount: Prisma.Decimal.Value,
+    tip: Prisma.Decimal.Value,
+  ): Prisma.Decimal {
+    const total = new Prisma.Decimal(subtotal)
+      .sub(discount)
+      .add(tip)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    return nonNegative(total);
   }
 
   /**
@@ -131,7 +144,7 @@ export class OrdersService {
     const productById = new Map(products.map((p) => [p.id, p]));
 
     const initialItems: Prisma.OrderItemCreateWithoutOrderInput[] = [];
-    let subtotal = 0;
+    let subtotal = new Prisma.Decimal(0);
 
     for (const item of dto.initialItems ?? []) {
       const product = productById.get(item.productId);
@@ -148,15 +161,17 @@ export class OrdersService {
         );
       }
 
-      const unitPrice = Number(product.price);
-      const itemSubtotal = unitPrice * item.quantity;
-      subtotal += itemSubtotal;
+      const unitPrice = new Prisma.Decimal(product.price);
+      const itemSubtotal = unitPrice
+        .mul(item.quantity)
+        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+      subtotal = subtotal.add(itemSubtotal);
 
       initialItems.push({
         product: { connect: { id: item.productId } },
         quantity: item.quantity,
-        unitPrice: new Prisma.Decimal(unitPrice),
-        subtotal: new Prisma.Decimal(itemSubtotal),
+        unitPrice,
+        subtotal: itemSubtotal,
         notes: item.notes,
         discountAmount: new Prisma.Decimal(0),
         addedBy: { connect: { id: createdById } },
@@ -212,7 +227,7 @@ export class OrdersService {
       tableId: string;
       createdById: string;
       attendedById: string;
-      subtotal: number;
+      subtotal: Prisma.Decimal;
       initialItems: Prisma.OrderItemCreateWithoutOrderInput[];
       createdByName: string;
     },
@@ -236,10 +251,10 @@ export class OrdersService {
             table: { connect: { id: input.tableId } },
             createdBy: { connect: { id: input.createdById } },
             attendedBy: { connect: { id: input.attendedById } },
-            subtotal: new Prisma.Decimal(input.subtotal),
+            subtotal: input.subtotal,
             discountAmount: new Prisma.Decimal(0),
             tipAmount: new Prisma.Decimal(0),
-            total: new Prisma.Decimal(input.subtotal),
+            total: input.subtotal,
             items: { create: input.initialItems },
             histories: {
               create: {
@@ -580,16 +595,18 @@ export class OrdersService {
     }
 
     // Crear el item
-    const unitPrice = Number(product.price);
-    const itemSubtotal = unitPrice * dto.quantity;
+    const unitPrice = new Prisma.Decimal(product.price);
+    const itemSubtotal = unitPrice
+      .mul(dto.quantity)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
     const newItem = await this.prisma.orderItem.create({
       data: {
         order: { connect: { id: orderId } },
         product: { connect: { id: dto.productId } },
         quantity: dto.quantity,
-        unitPrice: new Prisma.Decimal(unitPrice),
-        subtotal: new Prisma.Decimal(itemSubtotal),
+        unitPrice,
+        subtotal: itemSubtotal,
         discountAmount: new Prisma.Decimal(0),
         notes: dto.notes,
         addedBy: { connect: { id: userId } },
@@ -613,15 +630,15 @@ export class OrdersService {
     const newSubtotal = this.calculateSubtotal(updatedOrder.items);
     const newTotal = this.calculateTotal(
       newSubtotal,
-      Number(order.discountAmount),
-      Number(order.tipAmount),
+      order.discountAmount,
+      order.tipAmount,
     );
 
     const result = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        subtotal: new Prisma.Decimal(newSubtotal),
-        total: new Prisma.Decimal(newTotal),
+        subtotal: newSubtotal,
+        total: newTotal,
         histories: {
           create: {
             action: 'ITEM_ADDED',
@@ -631,7 +648,7 @@ export class OrdersService {
               productName: product.name,
               quantity: dto.quantity,
               unitPrice: Number(product.price),
-              subtotal: itemSubtotal,
+              subtotal: Number(itemSubtotal),
             },
             user: { connect: { id: userId } },
           },
@@ -722,15 +739,15 @@ export class OrdersService {
     const newSubtotal = this.calculateSubtotal(updatedOrder.items);
     const newTotal = this.calculateTotal(
       newSubtotal,
-      Number(order.discountAmount),
-      Number(order.tipAmount),
+      order.discountAmount,
+      order.tipAmount,
     );
 
     const result = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        subtotal: new Prisma.Decimal(newSubtotal),
-        total: new Prisma.Decimal(newTotal),
+        subtotal: newSubtotal,
+        total: newTotal,
         histories: {
           create: {
             action: 'ITEM_REMOVED',
@@ -810,7 +827,9 @@ export class OrdersService {
     }
 
     // Calcular nuevo subtotal para este item
-    const newItemSubtotal = Number(item.unitPrice) * dto.quantity;
+    const newItemSubtotal = new Prisma.Decimal(item.unitPrice)
+      .mul(dto.quantity)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
     // Obtener el nombre del producto
     const product = await this.prisma.product.findUnique({
@@ -823,7 +842,7 @@ export class OrdersService {
       where: { id: itemId },
       data: {
         quantity: dto.quantity,
-        subtotal: new Prisma.Decimal(newItemSubtotal),
+        subtotal: newItemSubtotal,
         notes: dto.notes !== undefined ? dto.notes : undefined,
         addedBy: { connect: { id: userId } }, // ✨ IMPORTANTE: Actualizar quién modificó
       },
@@ -845,16 +864,16 @@ export class OrdersService {
     const newSubtotal = this.calculateSubtotal(updatedOrder.items);
     const newTotal = this.calculateTotal(
       newSubtotal,
-      Number(order.discountAmount),
-      Number(order.tipAmount),
+      order.discountAmount,
+      order.tipAmount,
     );
 
     // Actualizar totales de la orden
     const result = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        subtotal: new Prisma.Decimal(newSubtotal),
-        total: new Prisma.Decimal(newTotal),
+        subtotal: newSubtotal,
+        total: newTotal,
         histories: {
           create: {
             action: 'ITEM_QUANTITY_UPDATED',
@@ -895,7 +914,7 @@ export class OrdersService {
       order.tableId,
       itemId,
       dto.quantity,
-      newItemSubtotal,
+      Number(newItemSubtotal),
       updatedItem.addedBy?.name || 'Usuario', // Quién modificó el item
     );
 
@@ -940,8 +959,8 @@ export class OrdersService {
       );
     }
 
-    let discountAmount = 0;
-    const subtotal = Number(order.subtotal);
+    const subtotal = new Prisma.Decimal(order.subtotal);
+    let discountAmount = new Prisma.Decimal(0);
 
     if (dto.percentageDiscount) {
       if (dto.percentageDiscount < 0 || dto.percentageDiscount > 100) {
@@ -949,42 +968,49 @@ export class OrdersService {
           'El descuento porcentual debe estar entre 0 y 100',
         );
       }
-      discountAmount = Math.round(subtotal * (dto.percentageDiscount / 100));
+      discountAmount = subtotal
+        .mul(dto.percentageDiscount)
+        .div(100)
+        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
     } else if (dto.fixedDiscount) {
       if (dto.fixedDiscount < 0) {
         throw new BadRequestException(
           'El descuento fijo no puede ser negativo',
         );
       }
-      if (dto.fixedDiscount > subtotal) {
+      const fixed = new Prisma.Decimal(dto.fixedDiscount).toDecimalPlaces(
+        2,
+        Prisma.Decimal.ROUND_HALF_UP,
+      );
+      if (fixed.gt(subtotal)) {
         throw new BadRequestException(
           'El descuento no puede ser mayor al subtotal',
         );
       }
-      discountAmount = dto.fixedDiscount;
+      discountAmount = fixed;
     }
 
     const newTotal = this.calculateTotal(
       subtotal,
       discountAmount,
-      Number(order.tipAmount),
+      order.tipAmount,
     );
 
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        discountAmount: new Prisma.Decimal(discountAmount),
-        total: new Prisma.Decimal(newTotal),
+        discountAmount,
+        total: newTotal,
         histories: {
           create: {
             action: 'DISCOUNT_APPLIED',
-            description: `Descuento aplicado: ${discountAmount} - ${dto.reason || 'Sin razón'}`,
+            description: `Descuento aplicado: ${discountAmount.toFixed(2)} - ${dto.reason || 'Sin razón'}`,
             metadata: {
-              discountAmount: discountAmount,
+              discountAmount: Number(discountAmount),
               discountType: dto.percentageDiscount ? 'percentage' : 'fixed',
               reason: dto.reason || 'Sin descripción',
-              appliedTo: subtotal,
-              newTotal: newTotal,
+              appliedTo: Number(subtotal),
+              newTotal: Number(newTotal),
             },
             user: { connect: { id: userId } },
           },
@@ -1041,24 +1067,28 @@ export class OrdersService {
       throw new NotFoundException('Orden no encontrada');
     }
 
-    const subtotal = Number(order.subtotal);
-    const discount = Number(order.discountAmount);
+    const subtotal = new Prisma.Decimal(order.subtotal);
+    const discount = new Prisma.Decimal(order.discountAmount);
+    const tip = new Prisma.Decimal(tipAmount).toDecimalPlaces(
+      2,
+      Prisma.Decimal.ROUND_HALF_UP,
+    );
 
-    const newTotal = this.calculateTotal(subtotal, discount, tipAmount);
+    const newTotal = this.calculateTotal(subtotal, discount, tip);
 
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
-        tipAmount: new Prisma.Decimal(tipAmount),
-        total: new Prisma.Decimal(newTotal),
+        tipAmount: tip,
+        total: newTotal,
         histories: {
           create: {
             action: 'TIP_ADDED',
-            description: `Propina agregada: ${tipAmount}`,
+            description: `Propina agregada: ${tip.toFixed(2)}`,
             metadata: {
-              tipAmount: tipAmount,
-              newTotal: newTotal,
-              subtotal: subtotal,
+              tipAmount: Number(tip),
+              newTotal: Number(newTotal),
+              subtotal: Number(subtotal),
             },
             user: { connect: { id: userId } },
           },

@@ -25,9 +25,10 @@ Use the database decimal type for storage and a decimal type for arithmetic.
   Amounts (payments, discounts, tips) already use `maxDecimalPlaces: 2`.
 - Persisted totals (order subtotal/discount/tip/total, payments) are recomputed and stored with
   `Prisma.Decimal` inside `$transaction`. The API never accepts a client-computed total.
-- It is still a known gap that some **intermediate** item math in `orders.service.ts` goes through
-  `Number(...)` before being wrapped back into `Prisma.Decimal`. For exactness these should use
-  `Prisma.Decimal` arithmetic (`Decimal.mul`, `.add`, `.sub`) — tracked as a follow-up.
+- All order math (subtotal, discount, tip, item quantity) and payment math (pending balance, change,
+  tip) uses `Prisma.Decimal` via `src/common/money.ts` — no `Number(...)`/float arithmetic on
+  persisted amounts. Values are only converted to `number` when serializing the response or
+  emitting WebSocket events, and rounded to 2 decimals (`ROUND_HALF_UP`).
 
 ## Prisma quirks
 
