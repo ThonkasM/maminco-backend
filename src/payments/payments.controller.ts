@@ -88,10 +88,10 @@ export class PaymentsController {
    *    }
    *    → Respuesta: Pago completado, propina de $10 registrada
    *
-   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    */
   @Post('orders/:orderId')
-  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async processPayment(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Body() dto: ProcessPaymentDto,

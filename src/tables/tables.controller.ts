@@ -43,10 +43,15 @@ export class TablesController {
 
   /**
    * Obtener lista de mesas con paginación y filtros
-   * Solo administradores
+   * Lectura permitida a todo el personal (POS necesita el mapa de mesas)
    */
   @Get()
-  @Roles(UserRole.ADMINISTRATOR)
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.CASHIER,
+    UserRole.WAITER,
+  )
   async findAll(
     @Query() query: ListTablesQueryDto,
   ): Promise<PaginatedTableResponseDto<TableResponseDto>> {
@@ -55,10 +60,15 @@ export class TablesController {
 
   /**
    * Obtener mesa por ID
-   * Solo administradores
+   * Lectura permitida a todo el personal
    */
   @Get(':id')
-  @Roles(UserRole.ADMINISTRATOR)
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.CASHIER,
+    UserRole.WAITER,
+  )
   async findById(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<TableResponseDto> {
@@ -67,10 +77,15 @@ export class TablesController {
 
   /**
    * Obtener mesas por área
-   * Solo administradores
+   * Lectura permitida a todo el personal
    */
   @Get('area/:areaId')
-  @Roles(UserRole.ADMINISTRATOR)
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.CASHIER,
+    UserRole.WAITER,
+  )
   async findByAreaId(
     @Param('areaId', ParseUUIDPipe) areaId: string,
   ): Promise<TableResponseDto[]> {

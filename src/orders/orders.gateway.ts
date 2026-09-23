@@ -6,9 +6,10 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrdersService } from './orders.service';
 
 interface SocketUser {
   id: string;
@@ -26,6 +27,8 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -216,8 +219,23 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('subscribe:tables:status')
-  handleSubscribeTablesStatus(socket: Socket) {
+  async handleSubscribeTablesStatus(socket: Socket) {
     socket.join('tables:status');
+    // Send the current state to the newly subscribed client. Non-admin roles
+    // (manager, cashier, waiter) cannot read `GET /api/tables`, so this initial
+    // snapshot is their only source for the table list.
+    try {
+      const tables = await this.ordersService.getAllTablesState();
+      socket.emit('tables:state:snapshot', {
+        tables,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error(
+        'No se pudo enviar el snapshot inicial de mesas',
+        error as Error,
+      );
+    }
   }
 
   @SubscribeMessage('unsubscribe:tables:status')
