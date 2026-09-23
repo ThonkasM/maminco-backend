@@ -10,10 +10,10 @@ import { OrderStatus } from '@prisma/client';
 export class ChangeOrderStatusDto {
   @IsEnum(OrderStatus)
   @IsNotEmpty()
-  status: OrderStatus; // BORRADOR | CERRADO | CANCELADO
+  status: OrderStatus; // DRAFT | CLOSED | CANCELLED
 
   /**
-   * Si es true y el estado es CERRADO, automáticamente imprime la orden
+   * Si es true y el estado es CLOSED, automáticamente imprime la orden
    * Default: false
    */
   @IsOptional()

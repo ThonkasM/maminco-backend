@@ -14,7 +14,7 @@ export class ReportsController {
    * Obtiene las ventas del día actual
    */
   @Get('today/sales')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getTodaySales() {
     const data = await this.reportsService.getTodaySales();
 
@@ -32,7 +32,7 @@ export class ReportsController {
    * - limit: number (default: 10) - Cantidad de productos a retornar
    */
   @Get('today/top-products')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getTodayTopProducts(@Query('limit') limit?: string) {
     const limitNum = limit ? parseInt(limit) : 10;
     const data = await this.reportsService.getTodayTopProducts(limitNum);
@@ -52,7 +52,7 @@ export class ReportsController {
    * - limit: number (default: 10) - Cantidad de productos a retornar
    */
   @Get('today')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getDailyReport(@Query('limit') limit?: string) {
     const limitNum = limit ? parseInt(limit) : 10;
     const data = await this.reportsService.getDailyReport(limitNum);

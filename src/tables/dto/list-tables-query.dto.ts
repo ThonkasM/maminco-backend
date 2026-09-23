@@ -25,5 +25,5 @@ export class ListTablesQueryDto {
 
   @IsEnum(TableStatus)
   @IsOptional()
-  status?: TableStatus; // Filtrar por estado (DISPONIBLE, OCUPADA, RESERVADA)
+  status?: TableStatus; // Filtrar por estado (AVAILABLE, OCCUPIED, RESERVED)
 }

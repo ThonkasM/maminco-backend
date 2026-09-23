@@ -33,7 +33,7 @@ export class AuthService {
         where: { id: adminId },
       });
 
-      if (!admin || admin.role !== 'ADMINISTRADOR') {
+      if (!admin || admin.role !== 'ADMINISTRATOR') {
         throw new ForbiddenException(
           'Solo administradores pueden registrar usuarios',
         );
@@ -120,7 +120,7 @@ export class AuthService {
         email,
         password: hashedPassword,
         name,
-        role: 'ADMINISTRADOR',
+        role: 'ADMINISTRATOR',
         isActive: true,
       },
       select: {

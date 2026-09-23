@@ -15,7 +15,7 @@ export class AppController {
 
   @Get('db-stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async getDbStats() {
     return this.appService.getDbStats();
   }

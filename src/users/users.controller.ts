@@ -33,7 +33,7 @@ export class UsersController {
    * Solo administradores pueden crear usuarios
    */
   @Post()
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(createUserDto);
   }
@@ -43,7 +43,7 @@ export class UsersController {
    * Solo administradores pueden listar usuarios
    */
   @Get()
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findAll(
     @Query() query: ListUsersQueryDto,
   ): Promise<PaginatedResponseDto<UserResponseDto>> {
@@ -55,7 +55,7 @@ export class UsersController {
    * Solo administradores pueden obtener detalles de usuarios
    */
   @Get(':id')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findById(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.findById(id);
   }
@@ -65,7 +65,7 @@ export class UsersController {
    * Solo administradores pueden actualizar usuarios
    */
   @Patch(':id')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -78,7 +78,7 @@ export class UsersController {
    * Solo administradores pueden desactivar usuarios
    */
   @Delete(':id')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async deactivate(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.deactivate(id);
   }
@@ -88,7 +88,7 @@ export class UsersController {
    * Solo administradores pueden resetear contraseñas
    */
   @Post(':id/reset-password')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async resetPassword(
     @Param('id') id: string,
     @Body() resetPasswordDto: ResetPasswordDto,

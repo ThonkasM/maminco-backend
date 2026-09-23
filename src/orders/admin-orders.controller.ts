@@ -7,7 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 /**
  * Controlador administrativo para acceso a órdenes
  * Proporciona rutas bajo /api/admin/orders/ con protección de roles
- * Solo accesible para ADMINISTRADOR y GERENTE
+ * Solo accesible para ADMINISTRATOR y MANAGER
  */
 @Controller('api/admin/orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -18,11 +18,11 @@ export class AdminOrdersController {
    * GET /api/admin/orders/:id/history
    * Obtiene el historial completo de una orden con todos los detalles
    * Incluye: quién hizo qué, cuándo, y metadata del cambio
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    * Query params: page (default: 1), limit (default: 50, max: 500)
    */
   @Get(':id/history')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getOrderHistory(
     @Param('id') id: string,
     @Query('page') page: string = '1',
@@ -39,7 +39,7 @@ export class AdminOrdersController {
    * GET /api/admin/orders/:id/history/timeline
    * Obtiene timeline visual simplificado de una orden
    * Formato: emoji + acción legible, ideal para UI de auditoría
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    * Query params: page (default: 1), limit (default: 50, max: 500)
    *
    * Ejemplo:
@@ -76,7 +76,7 @@ export class AdminOrdersController {
    * }
    */
   @Get(':id/history/timeline')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getOrderHistoryTimeline(
     @Param('id') id: string,
     @Query('page') page: string = '1',

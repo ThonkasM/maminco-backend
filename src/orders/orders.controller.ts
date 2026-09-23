@@ -31,20 +31,20 @@ export class OrdersController {
 
   /**
    * Crea una nueva orden
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    */
   @Post()
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async create(@Body() dto: CreateOrderDto, @CurrentUser() user: any) {
     return this.ordersService.create(dto);
   }
 
   /**
    * Lista órdenes con filtros avanzados
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    */
   @Get()
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async findAll(@Query() query: ListOrdersQueryDto) {
     return this.ordersService.findAll(query);
   }
@@ -53,28 +53,28 @@ export class OrdersController {
    * Obtiene una orden por ID
    */
   @Get(':id')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async findById(@Param('id') id: string) {
     return this.ordersService.findById(id);
   }
 
   /**
-   * Obtiene la orden activa (BORRADOR) de una mesa específica
+   * Obtiene la orden activa (DRAFT) de una mesa específica
    * Retorna null si no hay orden abierta en esa mesa
    * Útil para UI: al entrar a una mesa, verificar si ya hay orden
    */
   @Get('table/:tableId/active')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getActiveOrderByTable(@Param('tableId') tableId: string) {
     return this.ordersService.getActiveOrderByTable(tableId);
   }
 
   /**
    * Cambia el estado de una orden
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
    */
   @Patch(':id/status')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async changeStatus(
     @Param('id') id: string,
     @Body() dto: ChangeOrderStatusDto,
@@ -85,10 +85,10 @@ export class OrdersController {
 
   /**
    * Añade un item a una orden
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    */
   @Post(':id/items')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async addItem(
     @Param('id') id: string,
     @Body() dto: AddOrderItemDto,
@@ -99,10 +99,10 @@ export class OrdersController {
 
   /**
    * Elimina un item de una orden
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    */
   @Delete(':id/items/:itemId')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async removeItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -114,10 +114,10 @@ export class OrdersController {
   /**
    * Actualiza la cantidad de un item en una orden (sin eliminar y re-crear)
    * Mantiene la posición y el ID del item
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    */
   @Patch(':id/items/:itemId')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async updateItemQuantity(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -129,10 +129,10 @@ export class OrdersController {
 
   /**
    * Aplica un descuento a una orden
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
    */
   @Patch(':id/discount')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async applyDiscount(
     @Param('id') id: string,
     @Body() dto: ApplyDiscountDto,
@@ -143,10 +143,10 @@ export class OrdersController {
 
   /**
    * Agrega propina a una orden
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
    */
   @Patch(':id/tip')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async addTip(
     @Param('id') id: string,
     @Body('tipAmount') tipAmount: number,
@@ -160,30 +160,30 @@ export class OrdersController {
 
   /**
    * Obtiene estadísticas de ingresos
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    */
   @Get('stats/revenue')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getRevenueStats() {
     return this.ordersService.getRevenueStats();
   }
 
   /**
    * Obtiene órdenes agrupadas por estado
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    */
   @Get('stats/by-status')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getOrdersByStatus() {
     return this.ordersService.getOrdersByStatus();
   }
 
   /**
    * Obtiene órdenes agrupadas por tipo de servicio
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    */
   @Get('stats/by-service-type')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getOrdersByServiceType() {
     return this.ordersService.getOrdersByServiceType();
   }
@@ -191,11 +191,11 @@ export class OrdersController {
   /**
    * Obtiene el historial completo de una orden
    * Incluye: quién hizo qué, cuándo, y metadata del cambio
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    * Query params: page (default: 1), limit (default: 50, max: 500)
    */
   @Get(':id/history')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getOrderHistory(
     @Param('id') id: string,
     @Query('page') page: string = '1',
@@ -211,11 +211,11 @@ export class OrdersController {
   /**
    * Obtiene timeline visual simplificado de una orden
    * Formato: emoji + acción legible, ideal para UI
-   * Roles permitidos: MESERO, CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
    * Query params: page (default: 1), limit (default: 50, max: 500)
    */
   @Get(':id/history/timeline')
-  @Roles('MESERO', 'CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getOrderHistoryTimeline(
     @Param('id') id: string,
     @Query('page') page: string = '1',

@@ -26,7 +26,7 @@ export class PrintingController {
    * Listar impresoras disponibles
    */
   @Get('printers')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO', 'MESERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   async listPrinters() {
     const printers = await this.printingService.listPrinters();
     const defaultPrinter = await this.printingService.getDefaultPrinter();
@@ -48,7 +48,7 @@ export class PrintingController {
    * }
    */
   @Post('test')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async testPrint(@Body('printerName') printerName?: string) {
     return this.printingService.printTest(printerName);
   }
@@ -77,7 +77,7 @@ export class PrintingController {
    * }
    */
   @Post('order')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'MESERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'WAITER')
   async printOrder(
     @Body()
     orderData: {
@@ -109,7 +109,7 @@ export class PrintingController {
    * - printer: nombre de la impresora (opcional, usa la por defecto si no se especifica)
    */
   @Post('orders/:orderId')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO', 'MESERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   async printOrderFromDatabase(
     @Param('orderId') orderId: string,
     @Query('printer') printerName?: string,
@@ -144,7 +144,7 @@ export class PrintingController {
    * }
    */
   @Post('payment-receipt')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async printPaymentReceipt(
     @Body()
     receiptData: {
@@ -235,7 +235,7 @@ export class PrintingController {
    * - printer: nombre de la impresora (opcional, usa la por defecto si no se especifica)
    */
   @Post('orders/:orderId/payment-receipt')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async printPaymentReceiptFromDatabase(
     @Param('orderId') orderId: string,
     @Query('printer') printerName?: string,

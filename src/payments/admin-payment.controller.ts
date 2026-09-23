@@ -25,7 +25,7 @@ import {
 
 /**
  * Controlador para administración de métodos de pago y denominaciones de efectivo
- * Solo accesible para ADMINISTRADOR y GERENTE
+ * Solo accesible para ADMINISTRATOR y MANAGER
  */
 @Controller('api/admin/payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,7 +46,7 @@ export class AdminPaymentController {
    * Listar todos los métodos de pago
    */
   @Get('methods')
-  @Roles('ADMINISTRADOR', 'GERENTE')
+  @Roles('ADMINISTRATOR', 'MANAGER')
   async listPaymentMethods(
     @Query('includeInactive') includeInactive?: boolean,
   ): Promise<PaymentMethodResponseDto[]> {
@@ -66,7 +66,7 @@ export class AdminPaymentController {
    * }
    */
   @Post('methods')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async createPaymentMethod(
     @Body() dto: CreatePaymentMethodDto,
   ): Promise<PaymentMethodResponseDto> {
@@ -78,7 +78,7 @@ export class AdminPaymentController {
    * Obtener método de pago por ID
    */
   @Get('methods/:id')
-  @Roles('ADMINISTRADOR', 'GERENTE')
+  @Roles('ADMINISTRATOR', 'MANAGER')
   async getPaymentMethod(
     @Param('id') id: string,
   ): Promise<PaymentMethodResponseDto> {
@@ -90,7 +90,7 @@ export class AdminPaymentController {
    * Actualizar método de pago
    */
   @Patch('methods/:id')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async updatePaymentMethod(
     @Param('id') id: string,
     @Body() dto: UpdatePaymentMethodDto,
@@ -108,7 +108,7 @@ export class AdminPaymentController {
    * }
    */
   @Patch('methods/:id/toggle')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async togglePaymentMethodActive(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
@@ -121,7 +121,7 @@ export class AdminPaymentController {
    * Eliminar método de pago (soft delete)
    */
   @Delete('methods/:id')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async deletePaymentMethod(@Param('id') id: string): Promise<void> {
     return this.paymentMethodsService.delete(id);
   }
@@ -137,7 +137,7 @@ export class AdminPaymentController {
    * Listar todas las denominaciones de efectivo
    */
   @Get('cash-denominations')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async listCashDenominations(
     @Query('includeInactive') includeInactive?: boolean,
   ): Promise<CashDenominationResponseDto[]> {
@@ -155,7 +155,7 @@ export class AdminPaymentController {
    * }
    */
   @Post('cash-denominations')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async createCashDenomination(
     @Body() dto: CreateCashDenominationDto,
   ): Promise<CashDenominationResponseDto> {
@@ -167,7 +167,7 @@ export class AdminPaymentController {
    * Obtener denominación por ID
    */
   @Get('cash-denominations/:id')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async getCashDenomination(
     @Param('id') id: string,
   ): Promise<CashDenominationResponseDto> {
@@ -184,7 +184,7 @@ export class AdminPaymentController {
    * }
    */
   @Patch('cash-denominations/:id')
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async updateCashDenomination(
     @Param('id') id: string,
     @Body() dto: UpdateCashDenominationDto,
@@ -202,7 +202,7 @@ export class AdminPaymentController {
    * }
    */
   @Patch('cash-denominations/:id/increment')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async incrementCashDenomination(
     @Param('id') id: string,
     @Body('amount') amount: number,
@@ -220,7 +220,7 @@ export class AdminPaymentController {
    * }
    */
   @Patch('cash-denominations/:id/decrement')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async decrementCashDenomination(
     @Param('id') id: string,
     @Body('amount') amount: number,
@@ -233,7 +233,7 @@ export class AdminPaymentController {
    * Activar/Desactivar denominación
    */
   @Patch('cash-denominations/:id/toggle')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async toggleCashDenominationActive(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
@@ -246,7 +246,7 @@ export class AdminPaymentController {
    * Eliminar denominación de efectivo (solo si está vacía)
    */
   @Delete('cash-denominations/:id')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async deleteCashDenomination(@Param('id') id: string): Promise<void> {
     return this.cashDenominationsService.delete(id);
   }
@@ -262,7 +262,7 @@ export class AdminPaymentController {
    * Obtener resumen total de efectivo en caja
    */
   @Get('cash-summary')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getCashSummary(): Promise<any> {
     return this.cashDenominationsService.getCashSummary();
   }
@@ -272,7 +272,7 @@ export class AdminPaymentController {
    * Obtener total de efectivo en caja
    */
   @Get('cash-total')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getCashTotal(): Promise<{ total: number }> {
     const total = await this.cashDenominationsService.getTotalCashAmount();
     return { total };
@@ -281,10 +281,10 @@ export class AdminPaymentController {
   /**
    * PATCH /api/admin/payments/cash-reset
    * Resetear todas las denominaciones a 0 (cierre de caja)
-   * Solo ADMINISTRADOR
+   * Solo ADMINISTRATOR
    */
   @Patch('cash-reset')
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   async resetCashDenominations(): Promise<{ message: string }> {
     await this.cashDenominationsService.resetAllQuantities();
     return { message: 'Todas las denominaciones han sido reseteadas a 0' };

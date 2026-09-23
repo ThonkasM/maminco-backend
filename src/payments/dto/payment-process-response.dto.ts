@@ -67,7 +67,7 @@ export class PaymentProcessResponseDto {
   // Estado de la orden después del pago
   // Importante: El backend CIERRA la orden automáticamente al registrar el pago
   // Esto permite al frontend saber que NO debe intentar cerrar de nuevo
-  orderStatus?: 'CERRADO' | 'BORRADOR' | 'CANCELADO';
+  orderStatus?: 'CLOSED' | 'DRAFT' | 'CANCELLED';
 
   // Para múltiples pagos parciales
   // Indica cuánto falta pagar después de este pago

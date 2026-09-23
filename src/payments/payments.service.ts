@@ -83,7 +83,7 @@ export class PaymentsService {
     const totalDue = order.total.toNumber();
 
     // 2. Validar que la orden no esté ya pagada
-    if (order.status === 'CERRADO') {
+    if (order.status === 'CLOSED') {
       return {
         status: 'ERROR',
         message: 'La orden ya está cerrada y pagada',
@@ -193,7 +193,7 @@ export class PaymentsService {
     // 7. Actualizar orden solo si está completamente pagada
     if (shouldCloseOrder) {
       const updateData: any = {
-        status: 'CERRADO',
+        status: 'CLOSED',
         closedAt: new Date(),
         closedBy: { connect: { id: userId } },
       };
@@ -284,7 +284,7 @@ export class PaymentsService {
       tipAmount,
       totalDue,
       paymentMethod: paymentMethod.name,
-      orderStatus: shouldCloseOrder ? 'CERRADO' : 'BORRADOR',
+      orderStatus: shouldCloseOrder ? 'CLOSED' : 'DRAFT',
       totalPaidSoFar: totalPaidNow,
       pendingBalance: remainingBalance,
       isPaid: shouldCloseOrder,

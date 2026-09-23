@@ -152,7 +152,7 @@ export class OrdersService {
     const order = await this.prisma.order.create({
       data: {
         orderNumber,
-        status: 'BORRADOR',
+        status: 'DRAFT',
         serviceType: table.area.name, // Heredar de Area.name
         table: { connect: { id: dto.tableId } },
         createdBy: { connect: { id: dto.createdById } },
@@ -197,8 +197,8 @@ export class OrdersService {
     // 2. Evento de estado completo de la mesa
     this.ordersGateway.emitTableStateUpdated(dto.tableId, response);
 
-    // 3. Evento de cambio de estado de mesa (ahora está OCUPADA)
-    this.ordersGateway.emitTableStatusChanged(dto.tableId, 'OCUPADA', {
+    // 3. Evento de cambio de estado de mesa (ahora está OCCUPIED)
+    this.ordersGateway.emitTableStatusChanged(dto.tableId, 'OCCUPIED', {
       number: order.table?.number,
       tableName: `Mesa ${order.table?.number}`,
       areaId: order.table?.areaId,
@@ -240,7 +240,7 @@ export class OrdersService {
     }
 
     if (query.onlyOpen) {
-      where.status = { in: ['BORRADOR'] };
+      where.status = { in: ['DRAFT'] };
     }
 
     // Construir orden
@@ -312,7 +312,7 @@ export class OrdersService {
   }
 
   /**
-   * Obtiene la orden activa (BORRADOR) de una mesa específica
+   * Obtiene la orden activa (DRAFT) de una mesa específica
    * Retorna null si no hay orden abierta en esa mesa
    */
   async getActiveOrderByTable(
@@ -321,7 +321,7 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where: {
         tableId,
-        status: 'BORRADOR',
+        status: 'DRAFT',
         deletedAt: null,
       },
       include: {
@@ -368,25 +368,25 @@ export class OrdersService {
 
     // Validar transiciones de estado permitidas
     const validTransitions: Record<string, string[]> = {
-      BORRADOR: ['CERRADO', 'CANCELADO'],
-      CERRADO: ['CANCELADO'],
-      CANCELADO: [],
+      DRAFT: ['CLOSED', 'CANCELLED'],
+      CLOSED: ['CANCELLED'],
+      CANCELLED: [],
     };
 
     if (!validTransitions[order.status].includes(dto.status)) {
       const message =
-        order.status === 'CERRADO' && dto.status === 'CERRADO'
+        order.status === 'CLOSED' && dto.status === 'CLOSED'
           ? `La orden #${order.orderNumber} ya está CERRADA. No se puede cerrar dos veces. Verifica el estado de la orden antes de intentar cerrar.`
           : `No se puede cambiar de ${order.status} a ${dto.status}`;
       throw new BadRequestException(message);
     }
 
     // Si se cierra la orden, validar que tenga al menos un item
-    if (dto.status === 'CERRADO' && order.items.length === 0) {
+    if (dto.status === 'CLOSED' && order.items.length === 0) {
       throw new BadRequestException('No se puede cerrar una orden sin items');
     }
 
-    const closedAt = dto.status === 'CERRADO' ? new Date() : null;
+    const closedAt = dto.status === 'CLOSED' ? new Date() : null;
 
     const updated = await this.prisma.order.update({
       where: { id },
@@ -394,7 +394,7 @@ export class OrdersService {
         status: dto.status,
         closedAt,
         closedBy:
-          dto.status === 'CERRADO' ? { connect: { id: userId } } : undefined,
+          dto.status === 'CLOSED' ? { connect: { id: userId } } : undefined,
         histories: {
           create: {
             action: 'STATUS_CHANGED',
@@ -427,8 +427,8 @@ export class OrdersService {
     this.ordersGateway.emitTableStateUpdated(order.tableId, response);
 
     // 3. Si la orden se cierra, emitir que la mesa está disponible
-    if (dto.status === 'CERRADO') {
-      this.ordersGateway.emitTableStatusChanged(order.tableId, 'DISPONIBLE', {
+    if (dto.status === 'CLOSED') {
+      this.ordersGateway.emitTableStatusChanged(order.tableId, 'AVAILABLE', {
         number: order.table?.number,
         tableName: `Mesa ${order.table?.number}`,
         areaId: order.table?.areaId,
@@ -489,8 +489,8 @@ export class OrdersService {
       throw new NotFoundException('Orden no encontrada');
     }
 
-    // Solo se pueden agregar items a órdenes en estado BORRADOR
-    if (order.status !== 'BORRADOR') {
+    // Solo se pueden agregar items a órdenes en estado DRAFT
+    if (order.status !== 'DRAFT') {
       throw new ForbiddenException(
         `No se pueden agregar items a una orden ${order.status}`,
       );
@@ -616,8 +616,8 @@ export class OrdersService {
       throw new NotFoundException('Orden no encontrada');
     }
 
-    // Solo se pueden eliminar items de órdenes en estado BORRADOR
-    if (order.status !== 'BORRADOR') {
+    // Solo se pueden eliminar items de órdenes en estado DRAFT
+    if (order.status !== 'DRAFT') {
       throw new ForbiddenException(
         `No se pueden eliminar items de una orden ${order.status}`,
       );
@@ -721,8 +721,8 @@ export class OrdersService {
       throw new NotFoundException('Orden no encontrada');
     }
 
-    // Solo se pueden actualizar items de órdenes en estado BORRADOR
-    if (order.status !== 'BORRADOR') {
+    // Solo se pueden actualizar items de órdenes en estado DRAFT
+    if (order.status !== 'DRAFT') {
       throw new ForbiddenException(
         `No se pueden actualizar items de una orden ${order.status}`,
       );
@@ -863,8 +863,8 @@ export class OrdersService {
       throw new NotFoundException('Orden no encontrada');
     }
 
-    // Solo se pueden aplicar descuentos a órdenes en estado BORRADOR
-    if (order.status !== 'BORRADOR') {
+    // Solo se pueden aplicar descuentos a órdenes en estado DRAFT
+    if (order.status !== 'DRAFT') {
       throw new ForbiddenException(
         `No se pueden aplicar descuentos a una orden ${order.status}`,
       );
@@ -1037,7 +1037,7 @@ export class OrdersService {
     totalTip: number;
   }> {
     const orders = await this.prisma.order.findMany({
-      where: { status: 'CERRADO', ...where },
+      where: { status: 'CLOSED', ...where },
       select: {
         total: true,
         discountAmount: true,
@@ -1157,7 +1157,7 @@ export class OrdersService {
         area: { select: { id: true, name: true } },
         orders: {
           where: {
-            status: 'BORRADOR',
+            status: 'DRAFT',
             deletedAt: null,
           },
           include: {
@@ -1197,7 +1197,7 @@ export class OrdersService {
         area: { select: { id: true, name: true } },
         orders: {
           where: {
-            status: 'BORRADOR',
+            status: 'DRAFT',
             deletedAt: null,
           },
           include: {
@@ -1356,7 +1356,7 @@ export class OrdersService {
         case 'CREATED':
           emoji = '📝';
           actionLabel = 'Orden creada';
-          detail = `Mesa ${orderHistory.tableName?.replace('Mesa ', '')} - ${orderHistory.areaName}`;
+          detail = `Mesa ${orderHistory.tableName?.replace('Table ', '')} - ${orderHistory.areaName}`;
           break;
 
         case 'ITEM_ADDED':

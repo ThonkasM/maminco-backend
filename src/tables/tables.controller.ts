@@ -33,7 +33,7 @@ export class TablesController {
    * Solo administradores
    */
   @Post()
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async create(
     @Body() createTableDto: CreateTableDto,
   ): Promise<TableResponseDto> {
@@ -45,7 +45,7 @@ export class TablesController {
    * Solo administradores
    */
   @Get()
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findAll(
     @Query() query: ListTablesQueryDto,
   ): Promise<PaginatedTableResponseDto<TableResponseDto>> {
@@ -57,7 +57,7 @@ export class TablesController {
    * Solo administradores
    */
   @Get(':id')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findById(@Param('id') id: string): Promise<TableResponseDto> {
     return this.tablesService.findById(id);
   }
@@ -67,7 +67,7 @@ export class TablesController {
    * Solo administradores
    */
   @Get('area/:areaId')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findByAreaId(
     @Param('areaId') areaId: string,
   ): Promise<TableResponseDto[]> {
@@ -79,7 +79,7 @@ export class TablesController {
    * Solo administradores
    */
   @Patch(':id')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async update(
     @Param('id') id: string,
     @Body() updateTableDto: UpdateTableDto,
@@ -88,16 +88,16 @@ export class TablesController {
   }
 
   /**
-   * Cambiar estado de la mesa (DISPONIBLE, OCUPADA, RESERVADA)
+   * Cambiar estado de la mesa (AVAILABLE, OCCUPIED, RESERVED)
    * Administradores pueden cambiar siempre
    * Meseros/Cajeros pueden cambiar para gestionar su trabajo
    */
   @Patch(':id/status')
   @Roles(
-    UserRole.ADMINISTRADOR,
-    UserRole.MESERO,
-    UserRole.CAJERO,
-    UserRole.GERENTE,
+    UserRole.ADMINISTRATOR,
+    UserRole.WAITER,
+    UserRole.CASHIER,
+    UserRole.MANAGER,
   )
   async changeStatus(
     @Param('id') id: string,
@@ -111,7 +111,7 @@ export class TablesController {
    * Solo administradores
    */
   @Delete(':id')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async deactivate(@Param('id') id: string): Promise<TableResponseDto> {
     return this.tablesService.deactivate(id);
   }
@@ -121,7 +121,7 @@ export class TablesController {
    * Solo administradores
    */
   @Get('stats/overview')
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async getStats(): Promise<any> {
     return this.tablesService.getStats();
   }

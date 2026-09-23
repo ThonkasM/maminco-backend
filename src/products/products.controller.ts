@@ -51,7 +51,7 @@ export class ProductsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   create(
     @Body() createProductDto: CreateProductDto,
   ): Promise<ProductResponseDto> {
@@ -60,7 +60,7 @@ export class ProductsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO', 'MESERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   findAll(
     @Query() query: ListProductsQueryDto,
   ): Promise<PaginatedProductResponseDto> {
@@ -69,14 +69,14 @@ export class ProductsController {
 
   @Get('stats/overview')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR') // ✅ Ahora solo ADMINISTRADOR
+  @Roles('ADMINISTRATOR') // ✅ Ahora solo ADMINISTRATOR
   getStats(): Promise<any> {
     return this.productsService.getStats();
   }
 
   @Get('category/:categoryId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO', 'MESERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   findByCategory(
     @Param('categoryId') categoryId: string,
     @Query('page') page?: number,
@@ -87,14 +87,14 @@ export class ProductsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR', 'GERENTE', 'CAJERO', 'MESERO')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   findById(@Param('id') id: string): Promise<ProductResponseDto> {
     return this.productsService.findById(id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
@@ -104,7 +104,7 @@ export class ProductsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR')
+  @Roles('ADMINISTRATOR')
   deactivate(@Param('id') id: string): Promise<ProductResponseDto> {
     return this.productsService.deactivate(id);
   }

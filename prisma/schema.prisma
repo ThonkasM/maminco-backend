@@ -15,22 +15,22 @@ datasource db {
 // ============================================
 
 enum UserRole {
-  ADMINISTRADOR
-  GERENTE
-  CAJERO
-  MESERO
+  ADMINISTRATOR
+  MANAGER
+  CASHIER
+  WAITER
 }
 
 enum OrderStatus {
-  BORRADOR      // Pedido en proceso, aún se pueden agregar/quitar productos
-  CERRADO       // Pedido pagado, ya es una venta confirmada
-  CANCELADO     // Pedido cancelado
+  DRAFT      // Order in progress; items can still be added/removed
+  CLOSED     // Paid order, confirmed sale
+  CANCELLED  // Cancelled order
 }
 
 enum TableStatus {
-  DISPONIBLE
-  OCUPADA
-  RESERVADA
+  AVAILABLE
+  OCCUPIED
+  RESERVED
 }
 
 enum AuditAction {
@@ -82,7 +82,7 @@ model User {
 
 model PersonalType {
   id          String     @id @default(uuid())
-  name        String     @unique // CAJERO, MESERO, COCINERO, SERVICIO, etc.
+  name        String     @unique // CASHIER, WAITER, COCINERO, SERVICIO, etc.
   description String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -227,7 +227,7 @@ model Area {
 model Table {
   id          String      @id @default(uuid())
   number      Int         // Número de mesa (puede ser 0 para delivery/recoger)
-  status      TableStatus @default(DISPONIBLE)
+  status      TableStatus @default(AVAILABLE)
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -252,7 +252,7 @@ model Table {
 model Order {
   id              String       @id @default(uuid())
   orderNumber     String       @unique // Número de orden correlativo
-  status          OrderStatus  @default(BORRADOR)
+  status          OrderStatus  @default(DRAFT)
   serviceType     String       @default("MESA")  // Heredado de Area.name
   
   // Montos

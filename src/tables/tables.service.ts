@@ -306,13 +306,13 @@ export class TablesService {
     const [total, available, occupied, reserved, inactive] = await Promise.all([
       this.prisma.table.count({ where: { deletedAt: null } }),
       this.prisma.table.count({
-        where: { deletedAt: null, status: 'DISPONIBLE' },
+        where: { deletedAt: null, status: 'AVAILABLE' },
       }),
       this.prisma.table.count({
-        where: { deletedAt: null, status: 'OCUPADA' },
+        where: { deletedAt: null, status: 'OCCUPIED' },
       }),
       this.prisma.table.count({
-        where: { deletedAt: null, status: 'RESERVADA' },
+        where: { deletedAt: null, status: 'RESERVED' },
       }),
       this.prisma.table.count({ where: { deletedAt: null, isActive: false } }),
     ]);

@@ -42,7 +42,7 @@ export class AreasController {
    */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async create(@Body() createAreaDto: CreateAreaDto): Promise<AreaResponseDto> {
     return this.areasService.create(createAreaDto);
   }
@@ -53,7 +53,7 @@ export class AreasController {
    */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findAll(
     @Query() query: ListAreasQueryDto,
   ): Promise<PaginatedAreaResponseDto<AreaResponseDto>> {
@@ -66,7 +66,7 @@ export class AreasController {
    */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findById(@Param('id') id: string): Promise<AreaResponseDto> {
     return this.areasService.findById(id);
   }
@@ -77,7 +77,7 @@ export class AreasController {
    */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async update(
     @Param('id') id: string,
     @Body() updateAreaDto: UpdateAreaDto,
@@ -91,7 +91,7 @@ export class AreasController {
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async deactivate(@Param('id') id: string): Promise<AreaResponseDto> {
     return this.areasService.deactivate(id);
   }

@@ -28,7 +28,7 @@ export class PaymentsController {
 
   /**
    * Obtiene todos los métodos de pago disponibles
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR, MESERO
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR, WAITER
    *
    * GET /api/payments/methods
    *
@@ -43,7 +43,7 @@ export class PaymentsController {
    * ]
    */
   @Get('methods')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR', 'MESERO')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR', 'WAITER')
   async getPaymentMethods(): Promise<PaymentMethodResponseDto[]> {
     return this.paymentsService.getPaymentMethods();
   }
@@ -87,10 +87,10 @@ export class PaymentsController {
    *    }
    *    → Respuesta: Pago completado, propina de $10 registrada
    *
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
    */
   @Post('orders/:orderId')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async processPayment(
     @Param('orderId') orderId: string,
     @Body() dto: ProcessPaymentDto,
@@ -101,7 +101,7 @@ export class PaymentsController {
 
   /**
    * Obtiene todos los pagos de una orden específica
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR, MESERO
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR, WAITER
    *
    * GET /api/payments/orders/:orderId
    *
@@ -119,7 +119,7 @@ export class PaymentsController {
    * ]
    */
   @Get('orders/:orderId')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR', 'MESERO')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR', 'WAITER')
   async getPaymentsByOrder(
     @Param('orderId') orderId: string,
   ): Promise<PaymentResponseDto[]> {
@@ -128,7 +128,7 @@ export class PaymentsController {
 
   /**
    * Lista todos los pagos con filtros y paginación
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
    *
    * GET /api/payments?page=1&limit=20&paymentMethodId=pm-001&startDate=2025-11-01
    *
@@ -153,7 +153,7 @@ export class PaymentsController {
    * }
    */
   @Get()
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async findAll(
     @Query() query: ListPaymentsQueryDto,
   ): Promise<PaginatedPaymentResponseDto> {
@@ -162,12 +162,12 @@ export class PaymentsController {
 
   /**
    * Obtiene un pago por ID
-   * Roles permitidos: CAJERO, GERENTE, ADMINISTRADOR
+   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
    *
    * GET /api/payments/:paymentId
    */
   @Get(':paymentId')
-  @Roles('CAJERO', 'GERENTE', 'ADMINISTRADOR')
+  @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async findById(
     @Param('paymentId') paymentId: string,
   ): Promise<PaymentResponseDto> {
@@ -177,7 +177,7 @@ export class PaymentsController {
   /**
    * Obtiene resumen de pagos por método de pago
    * Útil para reportes
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    *
    * GET /api/payments/stats/by-method?startDate=2025-11-01&endDate=2025-11-07
    *
@@ -198,7 +198,7 @@ export class PaymentsController {
    * ]
    */
   @Get('stats/by-method')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getPaymentSummaryByMethod(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -210,7 +210,7 @@ export class PaymentsController {
 
   /**
    * Obtiene ingresos totales en un rango de fechas
-   * Roles permitidos: GERENTE, ADMINISTRADOR
+   * Roles permitidos: MANAGER, ADMINISTRATOR
    *
    * GET /api/payments/stats/total-revenue?startDate=2025-11-01&endDate=2025-11-07
    *
@@ -222,7 +222,7 @@ export class PaymentsController {
    * }
    */
   @Get('stats/total-revenue')
-  @Roles('GERENTE', 'ADMINISTRADOR')
+  @Roles('MANAGER', 'ADMINISTRATOR')
   async getTotalRevenue(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,

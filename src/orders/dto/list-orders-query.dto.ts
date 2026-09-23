@@ -40,7 +40,7 @@ export class ListOrdersQueryDto {
 
   @IsOptional()
   @Type(() => Boolean)
-  onlyOpen?: boolean; // Solo órdenes abiertas (BORRADOR)
+  onlyOpen?: boolean; // Solo órdenes abiertas (DRAFT)
 
   @IsOptional()
   sortBy?: 'createdAt' | 'total' | 'status'; // Ordenar por

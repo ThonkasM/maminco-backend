@@ -42,7 +42,7 @@ export class CategoriesController {
    */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryResponseDto> {
@@ -55,7 +55,7 @@ export class CategoriesController {
    */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findAll(
     @Query() query: ListCategoriesQueryDto,
   ): Promise<PaginatedCategoryResponseDto<CategoryResponseDto>> {
@@ -68,7 +68,7 @@ export class CategoriesController {
    */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async findById(@Param('id') id: string): Promise<CategoryResponseDto> {
     return this.categoriesService.findById(id);
   }
@@ -79,7 +79,7 @@ export class CategoriesController {
    */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -93,7 +93,7 @@ export class CategoriesController {
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMINISTRADOR)
+  @Roles(UserRole.ADMINISTRATOR)
   async deactivate(@Param('id') id: string): Promise<CategoryResponseDto> {
     return this.categoriesService.deactivate(id);
   }

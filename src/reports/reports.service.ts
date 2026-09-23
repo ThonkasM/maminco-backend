@@ -26,7 +26,7 @@ export class ReportsService {
             FROM orders
             JOIN tables ON orders."tableId" = tables.id
             JOIN areas ON tables."areaId" = areas.id
-            WHERE orders.status = 'CERRADO'
+            WHERE orders.status = 'CLOSED'
                 AND DATE(orders."createdAt") = ${todayString}::date
         `;
 
@@ -65,7 +65,7 @@ export class ReportsService {
             JOIN products ON order_items."productId" = products.id
             JOIN categories ON products."categoryId" = categories.id
             JOIN orders ON order_items."orderId" = orders.id
-            WHERE orders.status = 'CERRADO'
+            WHERE orders.status = 'CLOSED'
                 AND DATE(orders."createdAt") = ${todayString}::date
             GROUP BY products.id, products.name, categories.name
             ORDER BY totalQuantity DESC
