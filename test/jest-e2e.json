@@ -3,6 +3,10 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "setupFiles": ["<rootDir>/setup-e2e.ts"],
+  "transformIgnorePatterns": [
+    "node_modules/(?!(@nestjs/config|@nestjs/throttler|@nestjs/swagger)/)"
+  ],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   }
