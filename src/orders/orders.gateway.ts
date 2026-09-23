@@ -82,8 +82,9 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** Number of authenticated clients currently connected to this namespace. */
   getConnectedClients(): number {
-    const sockets = (this.server as unknown as { sockets?: Map<string, unknown> })
-      ?.sockets;
+    const sockets = (
+      this.server as unknown as { sockets?: Map<string, unknown> }
+    )?.sockets;
     return sockets?.size ?? 0;
   }
 

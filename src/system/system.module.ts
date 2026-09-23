@@ -9,15 +9,9 @@ import { OrdersModule } from '../orders/orders.module';
 import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-    imports: [
-        AuthModule,
-        PrintingModule,
-        AiModule,
-        OrdersModule,
-        PaymentsModule,
-    ],
-    controllers: [SystemController],
-    providers: [AppLogger, SystemService],
-    exports: [AppLogger],
+  imports: [AuthModule, PrintingModule, AiModule, OrdersModule, PaymentsModule],
+  controllers: [SystemController],
+  providers: [AppLogger, SystemService],
+  exports: [AppLogger],
 })
 export class SystemModule {}
