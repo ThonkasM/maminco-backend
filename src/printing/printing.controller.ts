@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Controller,
   Post,
@@ -111,7 +112,7 @@ export class PrintingController {
   @Post('orders/:orderId')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   async printOrderFromDatabase(
-    @Param('orderId') orderId: string,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
     @Query('printer') printerName?: string,
   ) {
     return this.printingService.printOrderFromDatabase(orderId, printerName);
@@ -237,7 +238,7 @@ export class PrintingController {
   @Post('orders/:orderId/payment-receipt')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async printPaymentReceiptFromDatabase(
-    @Param('orderId') orderId: string,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
     @Query('printer') printerName?: string,
   ) {
     return this.printingService.printPaymentReceiptFromDatabase(

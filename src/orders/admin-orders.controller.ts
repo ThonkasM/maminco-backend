@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -24,7 +25,7 @@ export class AdminOrdersController {
   @Get(':id/history')
   @Roles('MANAGER', 'ADMINISTRATOR')
   async getOrderHistory(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {
@@ -78,7 +79,7 @@ export class AdminOrdersController {
   @Get(':id/history/timeline')
   @Roles('MANAGER', 'ADMINISTRATOR')
   async getOrderHistoryTimeline(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {

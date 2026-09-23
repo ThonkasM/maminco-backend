@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Body,
   Controller,
@@ -67,7 +68,9 @@ export class AreasController {
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
-  async findById(@Param('id') id: string): Promise<AreaResponseDto> {
+  async findById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AreaResponseDto> {
     return this.areasService.findById(id);
   }
 
@@ -79,7 +82,7 @@ export class AreasController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAreaDto: UpdateAreaDto,
   ): Promise<AreaResponseDto> {
     return this.areasService.update(id, updateAreaDto);
@@ -92,7 +95,9 @@ export class AreasController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
-  async deactivate(@Param('id') id: string): Promise<AreaResponseDto> {
+  async deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AreaResponseDto> {
     return this.areasService.deactivate(id);
   }
 }

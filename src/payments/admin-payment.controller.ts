@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Controller,
   Get,
@@ -80,7 +81,7 @@ export class AdminPaymentController {
   @Get('methods/:id')
   @Roles('ADMINISTRATOR', 'MANAGER')
   async getPaymentMethod(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ): Promise<PaymentMethodResponseDto> {
     return this.paymentMethodsService.findById(id);
   }
@@ -92,7 +93,7 @@ export class AdminPaymentController {
   @Patch('methods/:id')
   @Roles('ADMINISTRATOR')
   async updatePaymentMethod(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePaymentMethodDto,
   ): Promise<PaymentMethodResponseDto> {
     return this.paymentMethodsService.update(id, dto);
@@ -110,7 +111,7 @@ export class AdminPaymentController {
   @Patch('methods/:id/toggle')
   @Roles('ADMINISTRATOR')
   async togglePaymentMethodActive(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('isActive') isActive: boolean,
   ): Promise<PaymentMethodResponseDto> {
     return this.paymentMethodsService.toggleActive(id, isActive);
@@ -122,7 +123,9 @@ export class AdminPaymentController {
    */
   @Delete('methods/:id')
   @Roles('ADMINISTRATOR')
-  async deletePaymentMethod(@Param('id') id: string): Promise<void> {
+  async deletePaymentMethod(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
     return this.paymentMethodsService.delete(id);
   }
 
@@ -169,7 +172,7 @@ export class AdminPaymentController {
   @Get('cash-denominations/:id')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async getCashDenomination(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CashDenominationResponseDto> {
     return this.cashDenominationsService.findById(id);
   }
@@ -186,7 +189,7 @@ export class AdminPaymentController {
   @Patch('cash-denominations/:id')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async updateCashDenomination(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCashDenominationDto,
   ): Promise<CashDenominationResponseDto> {
     return this.cashDenominationsService.updateQuantity(id, dto);
@@ -204,7 +207,7 @@ export class AdminPaymentController {
   @Patch('cash-denominations/:id/increment')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async incrementCashDenomination(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('amount') amount: number,
   ): Promise<CashDenominationResponseDto> {
     return this.cashDenominationsService.incrementQuantity(id, amount);
@@ -222,7 +225,7 @@ export class AdminPaymentController {
   @Patch('cash-denominations/:id/decrement')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async decrementCashDenomination(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('amount') amount: number,
   ): Promise<CashDenominationResponseDto> {
     return this.cashDenominationsService.decrementQuantity(id, amount);
@@ -235,7 +238,7 @@ export class AdminPaymentController {
   @Patch('cash-denominations/:id/toggle')
   @Roles('ADMINISTRATOR')
   async toggleCashDenominationActive(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('isActive') isActive: boolean,
   ): Promise<CashDenominationResponseDto> {
     return this.cashDenominationsService.toggleActive(id, isActive);
@@ -247,7 +250,9 @@ export class AdminPaymentController {
    */
   @Delete('cash-denominations/:id')
   @Roles('ADMINISTRATOR')
-  async deleteCashDenomination(@Param('id') id: string): Promise<void> {
+  async deleteCashDenomination(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
     return this.cashDenominationsService.delete(id);
   }
 

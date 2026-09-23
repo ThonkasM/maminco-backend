@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Controller,
   Post,
@@ -45,7 +46,9 @@ export class ProductsController {
    * Sin autenticación requerida
    */
   @Get('public/:id/availability') // ✅ Nuevo endpoint público
-  async getProductAvailability(@Param('id') id: string): Promise<any> {
+  async getProductAvailability(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<any> {
     return this.productsService.getProductAvailability(id);
   }
 
@@ -78,7 +81,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   findByCategory(
-    @Param('categoryId') categoryId: string,
+    @Param('categoryId', ParseUUIDPipe) categoryId: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ): Promise<PaginatedProductResponseDto> {
@@ -88,7 +91,9 @@ export class ProductsController {
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
-  findById(@Param('id') id: string): Promise<ProductResponseDto> {
+  findById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ProductResponseDto> {
     return this.productsService.findById(id);
   }
 
@@ -96,7 +101,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMINISTRATOR')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
   ): Promise<ProductResponseDto> {
     return this.productsService.update(id, updateProductDto);
@@ -105,7 +110,9 @@ export class ProductsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMINISTRATOR')
-  deactivate(@Param('id') id: string): Promise<ProductResponseDto> {
+  deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ProductResponseDto> {
     return this.productsService.deactivate(id);
   }
 }

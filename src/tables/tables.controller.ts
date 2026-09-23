@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Body,
   Controller,
@@ -58,7 +59,9 @@ export class TablesController {
    */
   @Get(':id')
   @Roles(UserRole.ADMINISTRATOR)
-  async findById(@Param('id') id: string): Promise<TableResponseDto> {
+  async findById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TableResponseDto> {
     return this.tablesService.findById(id);
   }
 
@@ -69,7 +72,7 @@ export class TablesController {
   @Get('area/:areaId')
   @Roles(UserRole.ADMINISTRATOR)
   async findByAreaId(
-    @Param('areaId') areaId: string,
+    @Param('areaId', ParseUUIDPipe) areaId: string,
   ): Promise<TableResponseDto[]> {
     return this.tablesService.findByAreaId(areaId);
   }
@@ -81,7 +84,7 @@ export class TablesController {
   @Patch(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateTableDto: UpdateTableDto,
   ): Promise<TableResponseDto> {
     return this.tablesService.update(id, updateTableDto);
@@ -100,7 +103,7 @@ export class TablesController {
     UserRole.MANAGER,
   )
   async changeStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() changeStatusDto: ChangeTableStatusDto,
   ): Promise<TableResponseDto> {
     return this.tablesService.changeStatus(id, changeStatusDto);
@@ -112,7 +115,9 @@ export class TablesController {
    */
   @Delete(':id')
   @Roles(UserRole.ADMINISTRATOR)
-  async deactivate(@Param('id') id: string): Promise<TableResponseDto> {
+  async deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TableResponseDto> {
     return this.tablesService.deactivate(id);
   }
 

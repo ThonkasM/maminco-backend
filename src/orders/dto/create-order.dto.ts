@@ -1,22 +1,48 @@
-import { IsUUID, IsNotEmpty, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+
+export class CreateOrderItemDto {
+  @IsUUID()
+  productId: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
 
 export class CreateOrderDto {
   @IsUUID()
   @IsNotEmpty()
-  tableId: string; // Mesa donde se registra la orden (su área determina serviceType)
-
-  @IsUUID()
-  @IsNotEmpty()
-  createdById: string; // Usuario que crea la orden (mesero/cajero)
-
-  @IsUUID()
-  @IsOptional()
-  attendedById?: string; // Usuario que atiende (mesero principal)
+  tableId: string;
 
   @IsOptional()
-  initialItems?: Array<{
-    productId: string;
-    quantity: number;
-    notes?: string;
-  }>;
+  @IsUUID()
+  createdById?: string;
+
+  @IsOptional()
+  @IsUUID()
+  attendedById?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  initialItems?: CreateOrderItemDto[];
 }

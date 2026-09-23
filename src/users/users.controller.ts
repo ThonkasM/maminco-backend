@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Body,
   Controller,
@@ -56,7 +57,9 @@ export class UsersController {
    */
   @Get(':id')
   @Roles(UserRole.ADMINISTRATOR)
-  async findById(@Param('id') id: string): Promise<UserResponseDto> {
+  async findById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<UserResponseDto> {
     return this.usersService.findById(id);
   }
 
@@ -67,7 +70,7 @@ export class UsersController {
   @Patch(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.usersService.update(id, updateUserDto);
@@ -79,7 +82,9 @@ export class UsersController {
    */
   @Delete(':id')
   @Roles(UserRole.ADMINISTRATOR)
-  async deactivate(@Param('id') id: string): Promise<UserResponseDto> {
+  async deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<UserResponseDto> {
     return this.usersService.deactivate(id);
   }
 
@@ -90,7 +95,7 @@ export class UsersController {
   @Post(':id/reset-password')
   @Roles(UserRole.ADMINISTRATOR)
   async resetPassword(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() resetPasswordDto: ResetPasswordDto,
   ): Promise<{ message: string }> {
     return this.usersService.resetPassword(id, resetPasswordDto);

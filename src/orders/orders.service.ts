@@ -33,8 +33,10 @@ export class OrdersService {
   /**
    * Genera el próximo número de orden correlativo
    */
-  private async generateOrderNumber(): Promise<string> {
-    const lastOrder = await this.prisma.order.findFirst({
+  private async generateOrderNumber(
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const lastOrder = await client.order.findFirst({
       orderBy: { createdAt: 'desc' },
       select: { orderNumber: true },
     });
@@ -73,8 +75,16 @@ export class OrdersService {
   /**
    * Crea una nueva orden
    */
-  async create(dto: CreateOrderDto): Promise<OrderResponseDto> {
-    // Validar que la mesa existe y obtener su área
+  async create(
+    dto: CreateOrderDto,
+    actorId?: string,
+  ): Promise<OrderResponseDto> {
+    // El creador SIEMPRE se deriva del usuario autenticado cuando está disponible.
+    const createdById = actorId ?? dto.createdById;
+    if (!createdById) {
+      throw new BadRequestException('Usuario creador requerido');
+    }
+
     const table = await this.prisma.table.findUnique({
       where: { id: dto.tableId },
       include: { area: true },
@@ -88,116 +98,99 @@ export class OrdersService {
       throw new NotFoundException('Mesa no tiene área asignada');
     }
 
-    // Validar que el usuario creador existe
     const createdByUser = await this.prisma.user.findUnique({
-      where: { id: dto.createdById },
+      where: { id: createdById },
     });
 
     if (!createdByUser || createdByUser.deletedAt) {
       throw new NotFoundException('Usuario creador no encontrado');
     }
 
-    // Validar usuario asistente si se proporciona
+    const attendedById = dto.attendedById ?? createdById;
     if (dto.attendedById) {
       const attendedByUser = await this.prisma.user.findUnique({
         where: { id: dto.attendedById },
       });
-
       if (!attendedByUser || attendedByUser.deletedAt) {
         throw new NotFoundException('Usuario asistente no encontrado');
       }
     }
 
-    const orderNumber = await this.generateOrderNumber();
+    // Resolver productos en una sola consulta (evita N+1)
+    const productIds = [
+      ...new Set((dto.initialItems ?? []).map((item) => item.productId)),
+    ];
+    const products = productIds.length
+      ? await this.prisma.product.findMany({
+          where: { id: { in: productIds } },
+        })
+      : [];
+    const productById = new Map(products.map((p) => [p.id, p]));
 
-    // Preparar items iniciales si se proporcionan
     const initialItems: Prisma.OrderItemCreateWithoutOrderInput[] = [];
     let subtotal = 0;
 
-    if (dto.initialItems && dto.initialItems.length > 0) {
-      for (const item of dto.initialItems) {
-        const product = await this.prisma.product.findUnique({
-          where: { id: item.productId },
-        });
+    for (const item of dto.initialItems ?? []) {
+      const product = productById.get(item.productId);
 
-        if (!product || product.deletedAt) {
-          throw new NotFoundException(
-            `Producto no encontrado: ${item.productId}`,
-          );
-        }
-
-        if (!product.isAvailable) {
-          throw new BadRequestException(
-            `Producto no disponible: ${product.name}`,
-          );
-        }
-
-        const unitPrice = Number(product.price);
-        const itemSubtotal = unitPrice * item.quantity;
-        subtotal += itemSubtotal;
-
-        initialItems.push({
-          product: { connect: { id: item.productId } },
-          quantity: item.quantity,
-          unitPrice: new Prisma.Decimal(unitPrice),
-          subtotal: new Prisma.Decimal(itemSubtotal),
-          notes: item.notes,
-          discountAmount: new Prisma.Decimal(0),
-          addedBy: { connect: { id: dto.createdById } },
-        });
+      if (!product || product.deletedAt) {
+        throw new NotFoundException(
+          `Producto no encontrado: ${item.productId}`,
+        );
       }
+
+      if (!product.isAvailable) {
+        throw new BadRequestException(
+          `Producto no disponible: ${product.name}`,
+        );
+      }
+
+      const unitPrice = Number(product.price);
+      const itemSubtotal = unitPrice * item.quantity;
+      subtotal += itemSubtotal;
+
+      initialItems.push({
+        product: { connect: { id: item.productId } },
+        quantity: item.quantity,
+        unitPrice: new Prisma.Decimal(unitPrice),
+        subtotal: new Prisma.Decimal(itemSubtotal),
+        notes: item.notes,
+        discountAmount: new Prisma.Decimal(0),
+        addedBy: { connect: { id: createdById } },
+      });
     }
 
-    // Crear la orden con items iniciales
-    const order = await this.prisma.order.create({
-      data: {
-        orderNumber,
-        status: 'DRAFT',
-        serviceType: table.area.name, // Heredar de Area.name
-        table: { connect: { id: dto.tableId } },
-        createdBy: { connect: { id: dto.createdById } },
-        attendedBy: dto.attendedById
-          ? { connect: { id: dto.attendedById } }
-          : undefined,
-        subtotal: new Prisma.Decimal(subtotal),
-        discountAmount: new Prisma.Decimal(0),
-        tipAmount: new Prisma.Decimal(0),
-        total: new Prisma.Decimal(subtotal),
-        items: {
-          create: initialItems,
-        },
-        histories: {
-          create: {
-            action: 'CREATED',
-            description: `Orden creada por ${createdByUser.name}`,
-            user: { connect: { id: dto.createdById } },
-          },
+    const include = {
+      table: { include: { area: true } },
+      createdBy: { select: { id: true, name: true, email: true } },
+      attendedBy: { select: { id: true, name: true, email: true } },
+      closedBy: { select: { id: true, name: true, email: true } },
+      items: {
+        include: {
+          product: true,
+          addedBy: { select: { id: true, name: true } },
         },
       },
-      include: {
-        table: { include: { area: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        attendedBy: { select: { id: true, name: true, email: true } },
-        closedBy: { select: { id: true, name: true, email: true } },
-        items: {
-          include: {
-            product: true,
-            addedBy: { select: { id: true, name: true } },
-          },
-        },
+    } satisfies Prisma.OrderInclude;
+
+    // La creación de la orden y el cambio de estado de la mesa son atómicos.
+    // Se reintenta ante colisión del número correlativo (P2002).
+    const order = await this.createOrderTransaction(
+      {
+        tableId: dto.tableId,
+        createdById,
+        attendedById,
+        subtotal,
+        initialItems,
+        createdByName: createdByUser.name,
       },
-    });
+      include,
+    );
 
     const response = this.mapOrderToResponse(order);
 
-    // Emitir eventos WebSocket
-    // 1. Evento específico de orden creada
     this.ordersGateway.emitOrderCreated(dto.tableId, response);
-
-    // 2. Evento de estado completo de la mesa
     this.ordersGateway.emitTableStateUpdated(dto.tableId, response);
-
-    // 3. Evento de cambio de estado de mesa (ahora está OCCUPIED)
     this.ordersGateway.emitTableStatusChanged(dto.tableId, 'OCCUPIED', {
       number: order.table?.number,
       tableName: `Mesa ${order.table?.number}`,
@@ -205,11 +198,74 @@ export class OrdersService {
       areaName: order.table?.area?.name,
     });
 
-    // 4. Emitir snapshot de todas las mesas
     const allTablesState = await this.getAllTablesState();
     this.ordersGateway.emitAllTablesState(allTablesState);
 
     return response;
+  }
+
+  private async createOrderTransaction(
+    input: {
+      tableId: string;
+      createdById: string;
+      attendedById: string;
+      subtotal: number;
+      initialItems: Prisma.OrderItemCreateWithoutOrderInput[];
+      createdByName: string;
+    },
+    include: Prisma.OrderInclude,
+    attempt = 0,
+  ): Promise<any> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const orderNumber = await this.generateOrderNumber(tx);
+
+        const order = await tx.order.create({
+          data: {
+            orderNumber,
+            status: 'DRAFT',
+            serviceType: (
+              await tx.table.findUniqueOrThrow({
+                where: { id: input.tableId },
+                include: { area: true },
+              })
+            ).area!.name,
+            table: { connect: { id: input.tableId } },
+            createdBy: { connect: { id: input.createdById } },
+            attendedBy: { connect: { id: input.attendedById } },
+            subtotal: new Prisma.Decimal(input.subtotal),
+            discountAmount: new Prisma.Decimal(0),
+            tipAmount: new Prisma.Decimal(0),
+            total: new Prisma.Decimal(input.subtotal),
+            items: { create: input.initialItems },
+            histories: {
+              create: {
+                action: 'CREATED',
+                description: `Orden creada por ${input.createdByName}`,
+                user: { connect: { id: input.createdById } },
+              },
+            },
+          },
+          include,
+        });
+
+        await tx.table.update({
+          where: { id: input.tableId },
+          data: { status: 'OCCUPIED' },
+        });
+
+        return order;
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        attempt < 3
+      ) {
+        return this.createOrderTransaction(input, include, attempt + 1);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -388,33 +444,44 @@ export class OrdersService {
 
     const closedAt = dto.status === 'CLOSED' ? new Date() : null;
 
-    const updated = await this.prisma.order.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        closedAt,
-        closedBy:
-          dto.status === 'CLOSED' ? { connect: { id: userId } } : undefined,
-        histories: {
-          create: {
-            action: 'STATUS_CHANGED',
-            description: `Estado cambiado de ${order.status} a ${dto.status}`,
-            user: { connect: { id: userId } },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.order.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          closedAt,
+          closedBy:
+            dto.status === 'CLOSED' ? { connect: { id: userId } } : undefined,
+          histories: {
+            create: {
+              action: 'STATUS_CHANGED',
+              description: `Estado cambiado de ${order.status} a ${dto.status}`,
+              user: { connect: { id: userId } },
+            },
           },
         },
-      },
-      include: {
-        table: { include: { area: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        attendedBy: { select: { id: true, name: true, email: true } },
-        closedBy: { select: { id: true, name: true, email: true } },
-        items: {
-          include: {
-            product: true,
-            addedBy: { select: { id: true, name: true } },
+        include: {
+          table: { include: { area: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
+          attendedBy: { select: { id: true, name: true, email: true } },
+          closedBy: { select: { id: true, name: true, email: true } },
+          items: {
+            include: {
+              product: true,
+              addedBy: { select: { id: true, name: true } },
+            },
           },
         },
-      },
+      });
+
+      if (dto.status === 'CLOSED' || dto.status === 'CANCELLED') {
+        await tx.table.update({
+          where: { id: order.tableId },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      return result;
     });
 
     const response = this.mapOrderToResponse(updated);

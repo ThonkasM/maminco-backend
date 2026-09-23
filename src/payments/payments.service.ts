@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -82,13 +83,19 @@ export class PaymentsService {
 
     const totalDue = order.total.toNumber();
 
-    // 2. Validar que la orden no esté ya pagada
+    // 2. Validar que la orden no esté ya pagada ni cancelada
     if (order.status === 'CLOSED') {
       return {
         status: 'ERROR',
         message: 'La orden ya está cerrada y pagada',
         error: 'ORDER_ALREADY_CLOSED',
       };
+    }
+
+    if (order.status === 'CANCELLED') {
+      throw new BadRequestException(
+        'No se puede registrar un pago en una orden cancelada',
+      );
     }
 
     // 3. Obtener método de pago
@@ -116,8 +123,9 @@ export class PaymentsService {
       };
     }
 
-    // 6. Lógica específica por método de pago
-    const paymentMethodName = paymentMethod.name.toUpperCase();
+    // 6. Lógica específica por método de pago (se decide por `code`, no por nombre:
+    //    los nombres son datos de negocio editables y pueden cambiar)
+    const methodCode = paymentMethod.code.toUpperCase();
     let changeAmount: number | null = null;
     let tipAmount: number = 0;
     let amountApplied: number = 0;
@@ -131,16 +139,13 @@ export class PaymentsService {
       amountApplied = pendingBalance;
       const excess = dto.amountReceived - pendingBalance;
 
-      // EFECTIVO: El excedente es cambio
-      if (paymentMethodName === 'EFECTIVO') {
+      // CASH: El excedente es cambio
+      if (methodCode === 'CASH') {
         changeAmount = excess;
         tipAmount = 0;
       }
-      // TRANSFERENCIA o TARJETA: Pregunta si el excedente es propina
-      else if (
-        paymentMethodName === 'TRANSFERENCIA' ||
-        paymentMethodName === 'TARJETA'
-      ) {
+      // TRANSFER o CARD: Pregunta si el excedente es propina
+      else if (methodCode === 'TRANSFER' || methodCode === 'CARD') {
         if (excess > 0 && !dto.isExtraTip) {
           // Pedir confirmación si hay excedente
           return {
@@ -168,86 +173,97 @@ export class PaymentsService {
       remainingBalance = pendingBalance - amountApplied;
     }
 
-    // 6. Crear registro de pago
-    const payment = await this.prisma.payment.create({
-      data: {
-        amountReceived: new Prisma.Decimal(dto.amountReceived),
-        amountApplied: new Prisma.Decimal(amountApplied),
-        changeAmount:
-          changeAmount !== null ? new Prisma.Decimal(changeAmount) : null,
-        tipAmount: new Prisma.Decimal(tipAmount),
-        order: { connect: { id: orderId } },
-        paymentMethod: { connect: { id: dto.paymentMethodId } },
-        createdBy: { connect: { id: userId } },
-      },
-      include: {
-        paymentMethod: true,
-        createdBy: { select: { id: true, name: true, email: true } },
-      },
+    const totalPaidNow = totalPaidAlready + amountApplied;
+
+    // 7. Persistir pago + cierre + auditoría de forma atómica.
+    //    El cierre usa updateMany condicionado al estado DRAFT para evitar
+    //    dobles cierres por pagos concurrentes.
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          amountReceived: new Prisma.Decimal(dto.amountReceived),
+          amountApplied: new Prisma.Decimal(amountApplied),
+          changeAmount:
+            changeAmount !== null ? new Prisma.Decimal(changeAmount) : null,
+          tipAmount: new Prisma.Decimal(tipAmount),
+          order: { connect: { id: orderId } },
+          paymentMethod: { connect: { id: dto.paymentMethodId } },
+          createdBy: { connect: { id: userId } },
+        },
+        include: {
+          paymentMethod: true,
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      if (shouldCloseOrder) {
+        const closeResult = await tx.order.updateMany({
+          where: { id: orderId, status: 'DRAFT' },
+          data: {
+            status: 'CLOSED',
+            closedAt: new Date(),
+            closedById: userId,
+            ...(tipAmount > 0
+              ? { tipAmount: new Prisma.Decimal(tipAmount) }
+              : {}),
+          },
+        });
+
+        if (closeResult.count === 0) {
+          throw new ConflictException(
+            'La orden fue cerrada o modificada por otra operación',
+          );
+        }
+
+        await tx.table.update({
+          where: { id: order.tableId },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      let auditDescription = `Pago de $${amountApplied} por ${paymentMethod.name}`;
+      if (shouldCloseOrder) {
+        auditDescription += ` (PAGO FINAL)`;
+        if (changeAmount)
+          auditDescription += ` - Cambio: $${changeAmount.toFixed(2)}`;
+        if (tipAmount)
+          auditDescription += ` - Propina: $${tipAmount.toFixed(2)}`;
+      } else {
+        auditDescription += ` (PAGO PARCIAL) - Saldo pendiente: $${remainingBalance.toFixed(2)}`;
+      }
+
+      await tx.auditLog.create({
+        data: {
+          action: 'PAYMENT',
+          tableName: 'payments',
+          recordId: created.id,
+          description: auditDescription,
+          user: { connect: { id: userId } },
+          order: { connect: { id: orderId } },
+          newValues: {
+            paymentId: created.id,
+            amountReceived: dto.amountReceived,
+            amountApplied,
+            changeAmount: changeAmount || null,
+            tipAmount,
+            method: paymentMethod.name,
+          },
+        },
+      });
+
+      return created;
     });
 
     this.logger.log(
-      `✅ Pago registrado: $${amountApplied} - Método: ${paymentMethod.name} - Cambio: ${changeAmount || 'N/A'} - Saldo pendiente: $${remainingBalance.toFixed(2)}`,
+      `Pago registrado: $${amountApplied} - Método: ${paymentMethod.name} - Cambio: ${changeAmount ?? 'N/A'} - Saldo pendiente: $${remainingBalance.toFixed(2)}`,
     );
 
-    // 7. Actualizar orden solo si está completamente pagada
     if (shouldCloseOrder) {
-      const updateData: any = {
-        status: 'CLOSED',
-        closedAt: new Date(),
-        closedBy: { connect: { id: userId } },
-      };
-
-      // Agregar propina si existe
-      if (tipAmount > 0) {
-        updateData.tipAmount = new Prisma.Decimal(tipAmount);
-      }
-
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: updateData,
-      });
-
       this.logger.log(
-        `✅ Orden #${order.orderNumber} CERRADA. Total pagado: $${(totalPaidAlready + amountApplied).toFixed(2)}`,
-      );
-    } else {
-      this.logger.debug(
-        `⏳ Pago parcial registrado. Saldo pendiente: $${remainingBalance.toFixed(2)}`,
+        `Orden #${order.orderNumber} cerrada. Total pagado: $${totalPaidNow.toFixed(2)}`,
       );
     }
 
-    // 8. Registrar en auditoría
-    let auditDescription = `Pago de $${amountApplied} por ${paymentMethod.name}`;
-    if (shouldCloseOrder) {
-      auditDescription += ` (PAGO FINAL)`;
-      if (changeAmount)
-        auditDescription += ` - Cambio: $${changeAmount.toFixed(2)}`;
-      if (tipAmount) auditDescription += ` - Propina: $${tipAmount.toFixed(2)}`;
-    } else {
-      auditDescription += ` (PAGO PARCIAL) - Saldo pendiente: $${remainingBalance.toFixed(2)}`;
-    }
-
-    await this.prisma.auditLog.create({
-      data: {
-        action: 'PAYMENT',
-        tableName: 'payments',
-        recordId: payment.id,
-        description: auditDescription,
-        user: { connect: { id: userId } },
-        order: { connect: { id: orderId } },
-        newValues: {
-          paymentId: payment.id,
-          amountReceived: dto.amountReceived,
-          amountApplied,
-          changeAmount: changeAmount || null,
-          tipAmount,
-          method: paymentMethod.name,
-        },
-      },
-    });
-
-    // 9. Emitir evento WebSocket
     this.paymentsGateway.emitPaymentProcessed(orderId, order.tableId, {
       paymentId: payment.id,
       amount: amountApplied,
@@ -258,18 +274,15 @@ export class PaymentsService {
       paidBy: order.createdBy.name,
     });
 
-    // 10. Construir mensaje de respuesta
-    const totalPaidNow = totalPaidAlready + amountApplied;
     let message = '';
-
     if (shouldCloseOrder) {
-      message = `✅ Pago final registrado. Orden completamente pagada.`;
+      message = `Pago final registrado. Orden completamente pagada.`;
       if (changeAmount)
         message += ` Cambio a dar: $${changeAmount.toFixed(2)}.`;
       if (tipAmount)
         message += ` Propina registrada: $${tipAmount.toFixed(2)}.`;
     } else {
-      message = `⏳ Pago parcial registrado: $${amountApplied.toFixed(2)}. Saldo pendiente: $${remainingBalance.toFixed(2)}.`;
+      message = `Pago parcial registrado: $${amountApplied.toFixed(2)}. Saldo pendiente: $${remainingBalance.toFixed(2)}.`;
     }
 
     return {

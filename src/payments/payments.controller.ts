@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Controller,
   Post,
@@ -92,7 +93,7 @@ export class PaymentsController {
   @Post('orders/:orderId')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async processPayment(
-    @Param('orderId') orderId: string,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
     @Body() dto: ProcessPaymentDto,
     @CurrentUser() user: any,
   ): Promise<PaymentProcessResponseDto> {
@@ -121,7 +122,7 @@ export class PaymentsController {
   @Get('orders/:orderId')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR', 'WAITER')
   async getPaymentsByOrder(
-    @Param('orderId') orderId: string,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
   ): Promise<PaymentResponseDto[]> {
     return this.paymentsService.getPaymentsByOrder(orderId);
   }
@@ -169,7 +170,7 @@ export class PaymentsController {
   @Get(':paymentId')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async findById(
-    @Param('paymentId') paymentId: string,
+    @Param('paymentId', ParseUUIDPipe) paymentId: string,
   ): Promise<PaymentResponseDto> {
     return this.paymentsService.findById(paymentId);
   }

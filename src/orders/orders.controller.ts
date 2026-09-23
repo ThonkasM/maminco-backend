@@ -1,3 +1,4 @@
+import { ParseUUIDPipe } from '@nestjs/common';
 import {
   Controller,
   Post,
@@ -36,7 +37,7 @@ export class OrdersController {
   @Post()
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async create(@Body() dto: CreateOrderDto, @CurrentUser() user: any) {
-    return this.ordersService.create(dto);
+    return this.ordersService.create(dto, user?.id ?? user?.sub);
   }
 
   /**
@@ -54,7 +55,7 @@ export class OrdersController {
    */
   @Get(':id')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async findById(@Param('id') id: string) {
+  async findById(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findById(id);
   }
 
@@ -65,7 +66,9 @@ export class OrdersController {
    */
   @Get('table/:tableId/active')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async getActiveOrderByTable(@Param('tableId') tableId: string) {
+  async getActiveOrderByTable(
+    @Param('tableId', ParseUUIDPipe) tableId: string,
+  ) {
     return this.ordersService.getActiveOrderByTable(tableId);
   }
 
@@ -76,7 +79,7 @@ export class OrdersController {
   @Patch(':id/status')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async changeStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeOrderStatusDto,
     @CurrentUser() user: any,
   ) {
@@ -90,7 +93,7 @@ export class OrdersController {
   @Post(':id/items')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async addItem(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddOrderItemDto,
     @CurrentUser() user: any,
   ) {
@@ -104,8 +107,8 @@ export class OrdersController {
   @Delete(':id/items/:itemId')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async removeItem(
-    @Param('id') id: string,
-    @Param('itemId') itemId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
     @CurrentUser() user: any,
   ) {
     return this.ordersService.removeItem(id, itemId, user.sub);
@@ -119,8 +122,8 @@ export class OrdersController {
   @Patch(':id/items/:itemId')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async updateItemQuantity(
-    @Param('id') id: string,
-    @Param('itemId') itemId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: UpdateOrderItemDto,
     @CurrentUser() user: any,
   ) {
@@ -134,7 +137,7 @@ export class OrdersController {
   @Patch(':id/discount')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async applyDiscount(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ApplyDiscountDto,
     @CurrentUser() user: any,
   ) {
@@ -148,7 +151,7 @@ export class OrdersController {
   @Patch(':id/tip')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async addTip(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('tipAmount') tipAmount: number,
     @CurrentUser() user: any,
   ) {
@@ -197,7 +200,7 @@ export class OrdersController {
   @Get(':id/history')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getOrderHistory(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {
@@ -217,7 +220,7 @@ export class OrdersController {
   @Get(':id/history/timeline')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
   async getOrderHistoryTimeline(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {
