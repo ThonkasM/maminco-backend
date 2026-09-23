@@ -4,17 +4,17 @@ import { DailySalesDto, TopProductDto, DailyReportDto } from './dto';
 
 @Injectable()
 export class ReportsService {
-    constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    /**
-     * Obtiene las ventas del día actual
-     */
-    async getTodaySales(): Promise<DailySalesDto> {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayString = today.toISOString().split('T')[0];
+  /**
+   * Obtiene las ventas del día actual
+   */
+  async getTodaySales(): Promise<DailySalesDto> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayString = today.toISOString().split('T')[0];
 
-        const result = await this.prisma.$queryRaw<any[]>`
+    const result = await this.prisma.$queryRaw<any[]>`
             SELECT 
                 COALESCE(CAST(SUM(orders.total) AS DECIMAL(10,2)), 0)::text as totalSales,
                 COALESCE(COUNT(DISTINCT orders.id), 0) as totalOrders,
@@ -30,28 +30,30 @@ export class ReportsService {
                 AND DATE(orders."createdAt") = ${todayString}::date
         `;
 
-        const data = result[0] || {};
+    const data = result[0] || {};
 
-        return {
-            totalSales: data.totalSales ? Number(data.totalSales) : 0,
-            totalOrders: Number(data.totalOrders) || 0,
-            averageOrderValue: data.averageOrderValue ? Number(data.averageOrderValue) : 0,
-            totalDiscount: data.totalDiscount ? Number(data.totalDiscount) : 0,
-            totalTips: data.totalTips ? Number(data.totalTips) : 0,
-            mesaOrders: Number(data.mesaOrders) || 0,
-            virtualOrders: Number(data.virtualOrders) || 0,
-        };
-    }
+    return {
+      totalSales: data.totalSales ? Number(data.totalSales) : 0,
+      totalOrders: Number(data.totalOrders) || 0,
+      averageOrderValue: data.averageOrderValue
+        ? Number(data.averageOrderValue)
+        : 0,
+      totalDiscount: data.totalDiscount ? Number(data.totalDiscount) : 0,
+      totalTips: data.totalTips ? Number(data.totalTips) : 0,
+      mesaOrders: Number(data.mesaOrders) || 0,
+      virtualOrders: Number(data.virtualOrders) || 0,
+    };
+  }
 
-    /**
-     * Obtiene los productos más vendidos del día
-     */
-    async getTodayTopProducts(limit: number = 10): Promise<TopProductDto[]> {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayString = today.toISOString().split('T')[0];
+  /**
+   * Obtiene los productos más vendidos del día
+   */
+  async getTodayTopProducts(limit: number = 10): Promise<TopProductDto[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayString = today.toISOString().split('T')[0];
 
-        const results = await this.prisma.$queryRaw<any[]>`
+    const results = await this.prisma.$queryRaw<any[]>`
             SELECT 
                 products.id,
                 products.name as productName,
@@ -70,30 +72,30 @@ export class ReportsService {
             LIMIT ${limit}
         `;
 
-        return results.map(row => ({
-            productId: row.id,
-            productName: row.productName,
-            categoryName: row.categoryName,
-            quantitySold: Number(row.totalQuantity) || 0,
-            unitPrice: row.unitPrice ? Number(row.unitPrice) : 0,
-            totalRevenue: row.totalRevenue ? Number(row.totalRevenue) : 0,
-        }));
-    }
+    return results.map((row) => ({
+      productId: row.id,
+      productName: row.productName,
+      categoryName: row.categoryName,
+      quantitySold: Number(row.totalQuantity) || 0,
+      unitPrice: row.unitPrice ? Number(row.unitPrice) : 0,
+      totalRevenue: row.totalRevenue ? Number(row.totalRevenue) : 0,
+    }));
+  }
 
-    /**
-     * Obtiene el reporte diario completo (ventas del día + top productos)
-     */
-    async getDailyReport(limit: number = 10): Promise<DailyReportDto> {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+  /**
+   * Obtiene el reporte diario completo (ventas del día + top productos)
+   */
+  async getDailyReport(limit: number = 10): Promise<DailyReportDto> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-        const sales = await this.getTodaySales();
-        const topProducts = await this.getTodayTopProducts(limit);
+    const sales = await this.getTodaySales();
+    const topProducts = await this.getTodayTopProducts(limit);
 
-        return {
-            date: today,
-            sales,
-            topProducts,
-        };
-    }
+    return {
+      date: today,
+      sales,
+      topProducts,
+    };
+  }
 }

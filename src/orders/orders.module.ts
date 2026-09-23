@@ -3,13 +3,13 @@ import { OrdersController } from './orders.controller';
 import { AdminOrdersController } from './admin-orders.controller';
 import { OrdersService } from './orders.service';
 import { OrdersGateway } from './orders.gateway';
-import { PrismaService } from '../prisma/prisma.service';
 import { PrintingModule } from '../printing/printing.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [PrintingModule],
-    controllers: [OrdersController, AdminOrdersController],
-    providers: [OrdersService, OrdersGateway, PrismaService],
-    exports: [OrdersService, OrdersGateway],
+  imports: [PrintingModule, AuthModule],
+  controllers: [OrdersController, AdminOrdersController],
+  providers: [OrdersService, OrdersGateway],
+  exports: [OrdersService, OrdersGateway],
 })
-export class OrdersModule { }
+export class OrdersModule {}

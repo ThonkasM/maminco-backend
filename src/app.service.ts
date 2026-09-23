@@ -3,7 +3,7 @@ import { PrismaService } from './prisma/prisma.service';
 
 @Injectable()
 export class AppService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   getHello(): string {
     return 'Hello World!';
@@ -13,14 +13,15 @@ export class AppService {
    * Obtiene estadísticas básicas de la base de datos
    */
   async getDbStats() {
-    const [users, categories, products, areas, tables, orders] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.category.count(),
-      this.prisma.product.count(),
-      this.prisma.area.count(),
-      this.prisma.table.count(),
-      this.prisma.order.count(),
-    ]);
+    const [users, categories, products, areas, tables, orders] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.category.count(),
+        this.prisma.product.count(),
+        this.prisma.area.count(),
+        this.prisma.table.count(),
+        this.prisma.order.count(),
+      ]);
 
     return {
       message: 'Database Statistics',
@@ -36,4 +37,3 @@ export class AppService {
     };
   }
 }
-

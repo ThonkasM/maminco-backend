@@ -1,7 +1,10 @@
 export { CreatePaymentDto } from './create-payment.dto';
 export { ProcessPaymentDto } from './process-payment.dto';
 export { ListPaymentsQueryDto } from './list-payments-query.dto';
-export { PaymentResponseDto, PaginatedPaymentResponseDto } from './payment-response.dto';
+export {
+  PaymentResponseDto,
+  PaginatedPaymentResponseDto,
+} from './payment-response.dto';
 export { PaymentMethodResponseDto } from './payment-method-response.dto';
 export { PaymentProcessResponseDto } from './payment-process-response.dto';
 export { CreatePaymentMethodDto } from './create-payment-method.dto';

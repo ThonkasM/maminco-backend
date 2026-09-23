@@ -1,23 +1,20 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import {
+  SocketIoAdapter,
+  resolveCorsOrigins,
+} from './common/adapters/socket-io.adapter';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // ============================================
-  // CORS Configuration
-  // ============================================
-  const corsOrigin = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-    : [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:8000',
-      'http://localhost:8080',
-      'http://127.0.0.1:3000',
-    ];
+  app.use(helmet());
+  app.useWebSocketAdapter(new SocketIoAdapter(app));
+
+  const corsOrigin = resolveCorsOrigins();
 
   app.enableCors({
     origin: corsOrigin,
@@ -28,9 +25,6 @@ async function bootstrap() {
     maxAge: 3600,
   });
 
-  // ============================================
-  // Global Validation Pipe
-  // ============================================
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -39,12 +33,9 @@ async function bootstrap() {
     }),
   );
 
-  // ============================================
-  // Start server
-  // ============================================
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`🚀 Servidor iniciado en http://localhost:${port}`);
-  console.log(`📋 CORS habilitado para: ${JSON.stringify(corsOrigin)}`);
+  logger.log(`Servidor iniciado en http://localhost:${port}`);
+  logger.log(`CORS habilitado para: ${JSON.stringify(corsOrigin)}`);
 }
 bootstrap();

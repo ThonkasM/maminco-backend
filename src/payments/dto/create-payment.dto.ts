@@ -1,8 +1,15 @@
-import { IsString, IsNumber, Min, IsNotEmpty, IsOptional, IsDecimal } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  Min,
+  IsNotEmpty,
+  IsOptional,
+  IsDecimal,
+} from 'class-validator';
 
 /**
  * DTO para procesar un pago en una orden
- * 
+ *
  * Ejemplo:
  * {
  *   "orderId": "abc123",
@@ -12,33 +19,33 @@ import { IsString, IsNumber, Min, IsNotEmpty, IsOptional, IsDecimal } from 'clas
  * }
  */
 export class CreatePaymentDto {
-    /**
-     * ID de la orden a pagar
-     */
-    @IsString()
-    @IsNotEmpty({ message: 'El ID de la orden es requerido' })
-    orderId: string;
+  /**
+   * ID de la orden a pagar
+   */
+  @IsString()
+  @IsNotEmpty({ message: 'El ID de la orden es requerido' })
+  orderId: string;
 
-    /**
-     * Monto a pagar
-     * Debe ser positivo y no debe exceder el total de la orden
-     */
-    @IsNumber({ maxDecimalPlaces: 2 })
-    @Min(0.01, { message: 'El monto debe ser mayor a 0' })
-    @IsNotEmpty({ message: 'El monto es requerido' })
-    amount: number;
+  /**
+   * Monto a pagar
+   * Debe ser positivo y no debe exceder el total de la orden
+   */
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01, { message: 'El monto debe ser mayor a 0' })
+  @IsNotEmpty({ message: 'El monto es requerido' })
+  amount: number;
 
-    /**
-     * ID del método de pago (EFECTIVO, TARJETA, TRANSFERENCIA, etc.)
-     */
-    @IsString()
-    @IsNotEmpty({ message: 'El método de pago es requerido' })
-    paymentMethodId: string;
+  /**
+   * ID del método de pago (EFECTIVO, TARJETA, TRANSFERENCIA, etc.)
+   */
+  @IsString()
+  @IsNotEmpty({ message: 'El método de pago es requerido' })
+  paymentMethodId: string;
 
-    /**
-     * Notas adicionales sobre el pago (opcional)
-     */
-    @IsOptional()
-    @IsString()
-    notes?: string;
+  /**
+   * Notas adicionales sobre el pago (opcional)
+   */
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

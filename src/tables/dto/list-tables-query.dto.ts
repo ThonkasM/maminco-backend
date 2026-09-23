@@ -4,26 +4,26 @@ import { Type } from 'class-transformer';
 import { IsInt, Min } from 'class-validator';
 
 export class ListTablesQueryDto {
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
-    page?: number = 1;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
 
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
-    limit?: number = 10;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number = 10;
 
-    @IsOptional()
-    @Type(() => Number)
-    number?: number; // Filtrar por número de mesa
+  @IsOptional()
+  @Type(() => Number)
+  number?: number; // Filtrar por número de mesa
 
-    @IsOptional()
-    areaId?: string; // Filtrar por área
+  @IsOptional()
+  areaId?: string; // Filtrar por área
 
-    @IsEnum(TableStatus)
-    @IsOptional()
-    status?: TableStatus; // Filtrar por estado (DISPONIBLE, OCUPADA, RESERVADA)
+  @IsEnum(TableStatus)
+  @IsOptional()
+  status?: TableStatus; // Filtrar por estado (DISPONIBLE, OCUPADA, RESERVADA)
 }

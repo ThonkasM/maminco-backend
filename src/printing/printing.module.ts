@@ -3,8 +3,8 @@ import { PrintingService } from './printing.service';
 import { PrintingController } from './printing.controller';
 
 @Module({
-    controllers: [PrintingController],
-    providers: [PrintingService],
-    exports: [PrintingService],
+  controllers: [PrintingController],
+  providers: [PrintingService],
+  exports: [PrintingService],
 })
-export class PrintingModule { }
+export class PrintingModule {}

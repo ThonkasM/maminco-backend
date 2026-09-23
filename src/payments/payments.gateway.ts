@@ -1,158 +1,130 @@
 import {
-    WebSocketGateway,
-    WebSocketServer,
-    OnGatewayInit,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+  OnGatewayInit,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 
-@WebSocketGateway({
-    namespace: '/payments',
-    cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-        credentials: true,
-    },
-})
+@WebSocketGateway({ namespace: '/payments' })
 export class PaymentsGateway
-    implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-    @WebSocketServer() server: Server;
-    private logger: Logger = new Logger('PaymentsGateway');
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
+  @WebSocketServer() server: Server;
+  private readonly logger = new Logger('PaymentsGateway');
 
-    constructor(private jwtService: JwtService) { }
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-    afterInit(server: Server) {
-        this.logger.log('💳 WebSocket Pagos Inicializado');
+  afterInit(_server: Server) {
+    this.logger.log('WebSocket de pagos inicializado');
+  }
+
+  async handleConnection(client: Socket) {
+    try {
+      const token = client.handshake.auth?.token;
+      if (!token) {
+        client.disconnect();
+        return;
+      }
+
+      const payload = this.jwtService.verify<{ sub: string }>(token);
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, isActive: true, deletedAt: true },
+      });
+
+      if (!user || !user.isActive || user.deletedAt) {
+        client.disconnect();
+        return;
+      }
+
+      client.data.userId = user.id;
+    } catch (error) {
+      this.logger.warn(
+        `Error en autenticación WS: ${error instanceof Error ? error.message : error}`,
+      );
+      client.disconnect();
     }
+  }
 
-    async handleConnection(client: Socket) {
-        try {
-            const token = client.handshake.auth.token;
-            if (!token) {
-                this.logger.warn(`❌ Cliente conectado sin token en /payments`);
-                client.disconnect();
-                return;
-            }
+  handleDisconnect(_client: Socket) {
+    this.logger.debug('Cliente desconectado de /payments');
+  }
 
-            const decoded = this.jwtService.verify(token);
-            this.logger.log(`✅ Usuario conectado en /payments: ${decoded.email}`);
-        } catch (error) {
-            this.logger.error(`❌ Error en autenticación: ${error.message}`);
-            client.disconnect();
-        }
-    }
+  emitPaymentProcessed(
+    orderId: string,
+    tableId: string,
+    data: {
+      paymentId: string;
+      amount: number;
+      method: string;
+      changeAmount: number;
+      tipAmount: number;
+      isPaid: boolean;
+      paidBy: string;
+    },
+  ) {
+    this.server.to(`order-${orderId}`).emit('payment:processed', {
+      orderId,
+      tableId,
+      ...data,
+      timestamp: new Date(),
+    });
+  }
 
-    handleDisconnect(client: Socket) {
-        this.logger.log(`👋 Cliente desconectado de /payments`);
-    }
+  emitRefundProcessed(
+    orderId: string,
+    tableId: string,
+    data: {
+      refundId: string;
+      amount: number;
+      reason: string;
+      processedBy: string;
+    },
+  ) {
+    this.server.to(`order-${orderId}`).emit('payment:refund', {
+      orderId,
+      tableId,
+      ...data,
+      timestamp: new Date(),
+    });
+  }
 
-    /**
-     * Emite evento cuando un pago es procesado
-     * Se envía a todos los clientes en la sala de la orden
-     */
-    emitPaymentProcessed(
-        orderId: string,
-        tableId: string,
-        data: {
-            paymentId: string;
-            amount: number;
-            method: string;
-            changeAmount: number;
-            tipAmount: number;
-            isPaid: boolean;
-            paidBy: string;
-        },
-    ) {
-        const roomName = `order-${orderId}`;
-        this.server.to(roomName).emit('payment:processed', {
-            orderId,
-            tableId,
-            ...data,
-            timestamp: new Date(),
-        });
+  emitTablePaymentStateUpdated(
+    tableId: string,
+    data: {
+      totalOutstanding: number;
+      totalPaid: number;
+      pendingOrders: number;
+      lastPaymentAt: Date;
+    },
+  ) {
+    this.server.to(`table-${tableId}`).emit('payment:table-state', {
+      tableId,
+      ...data,
+      timestamp: new Date(),
+    });
+  }
 
-        this.logger.log(
-            `💰 Pago emitido: $${data.amount} - Orden: ${orderId} - Cambio: $${data.changeAmount}`,
-        );
-    }
+  @SubscribeMessage('joinOrder')
+  handleJoinOrder(client: Socket, data: unknown) {
+    const orderId = (data as { orderId?: unknown })?.orderId;
+    if (typeof orderId !== 'string' || !orderId) return;
+    client.join(`order-${orderId}`);
+  }
 
-    /**
-     * Emite evento cuando un reembolso es procesado
-     */
-    emitRefundProcessed(
-        orderId: string,
-        tableId: string,
-        data: {
-            refundId: string;
-            amount: number;
-            reason: string;
-            processedBy: string;
-        },
-    ) {
-        const roomName = `order-${orderId}`;
-        this.server.to(roomName).emit('payment:refund', {
-            orderId,
-            tableId,
-            ...data,
-            timestamp: new Date(),
-        });
-
-        this.logger.log(
-            `🔄 Reembolso emitido: $${data.amount} - Orden: ${orderId}`,
-        );
-    }
-
-    /**
-     * Emite evento cuando cambia el estado de pagos de una mesa
-     */
-    emitTablePaymentStateUpdated(
-        tableId: string,
-        data: {
-            totalOutstanding: number;
-            totalPaid: number;
-            pendingOrders: number;
-            lastPaymentAt: Date;
-        },
-    ) {
-        const roomName = `table-${tableId}`;
-        this.server.to(roomName).emit('payment:table-state', {
-            tableId,
-            ...data,
-            timestamp: new Date(),
-        });
-
-        this.logger.log(
-            `📊 Estado de pagos actualizado - Mesa: ${tableId}`,
-        );
-    }
-
-    /**
-     * Permite a un cliente unirse a una sala de orden
-     */
-    @SubscribeMessage('joinOrder')
-    handleJoinOrder(
-        client: Socket,
-        data: { orderId: string; tableId: string },
-    ) {
-        const roomName = `order-${data.orderId}`;
-        client.join(roomName);
-        this.logger.log(
-            `✅ Cliente unido a sala: ${roomName}`,
-        );
-    }
-
-    /**
-     * Permite a un cliente unirse a una sala de mesa
-     */
-    @SubscribeMessage('joinTable')
-    handleJoinTable(client: Socket, data: { tableId: string }) {
-        const roomName = `table-${data.tableId}`;
-        client.join(roomName);
-        this.logger.log(
-            `✅ Cliente unido a sala: ${roomName}`,
-        );
-    }
+  @SubscribeMessage('joinTable')
+  handleJoinTable(client: Socket, data: unknown) {
+    const tableId = (data as { tableId?: unknown })?.tableId;
+    if (typeof tableId !== 'string' || !tableId) return;
+    client.join(`table-${tableId}`);
+  }
 }

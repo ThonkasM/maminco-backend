@@ -1,6 +1,6 @@
 /**
  * DTO de respuesta para los Métodos de Pago
- * 
+ *
  * Ejemplo:
  * {
  *   "id": "pm-cash",
@@ -13,11 +13,11 @@
  * }
  */
 export class PaymentMethodResponseDto {
-    id: string;
-    name: string;
-    code: string;
-    description?: string;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

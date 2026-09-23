@@ -2,10 +2,10 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 /**
  * Decorador @CurrentUser()
- * 
+ *
  * Extrae el usuario autenticado del request y lo pasa como parámetro
  * al controlador/servicio.
- * 
+ *
  * Uso:
  * ```
  * @Get('profile')
@@ -16,8 +16,8 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
  * ```
  */
 export const CurrentUser = createParamDecorator(
-    (data: unknown, ctx: ExecutionContext) => {
-        const request = ctx.switchToHttp().getRequest();
-        return request.user;
-    },
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user;
+  },
 );

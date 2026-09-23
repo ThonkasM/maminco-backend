@@ -2,7 +2,7 @@ import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 
 /**
  * DTO para crear un nuevo método de pago
- * 
+ *
  * Ejemplos:
  * {
  *   "name": "EFECTIVO",
@@ -10,7 +10,7 @@ import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
  *   "description": "Pago en efectivo con monedas y billetes",
  *   "isActive": true
  * }
- * 
+ *
  * {
  *   "name": "TRANSFERENCIA BANCARIA",
  *   "code": "TRANSFER",
@@ -19,19 +19,19 @@ import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
  * }
  */
 export class CreatePaymentMethodDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string; // EFECTIVO, TRANSFERENCIA BANCARIA, TARJETA, etc.
+  @IsString()
+  @IsNotEmpty()
+  name: string; // EFECTIVO, TRANSFERENCIA BANCARIA, TARJETA, etc.
 
-    @IsString()
-    @IsNotEmpty()
-    code: string; // CASH, TRANSFER, CARD - para programación
+  @IsString()
+  @IsNotEmpty()
+  code: string; // CASH, TRANSFER, CARD - para programación
 
-    @IsOptional()
-    @IsString()
-    description?: string;
+  @IsOptional()
+  @IsString()
+  description?: string;
 
-    @IsOptional()
-    @IsBoolean()
-    isActive?: boolean = true;
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean = true;
 }
