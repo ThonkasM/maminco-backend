@@ -83,9 +83,9 @@ async function main() {
             { value: 1, type: 'COIN' },
             { value: 2, type: 'COIN' },
             { value: 5, type: 'COIN' },
-            { value: 10, type: 'COIN' },
 
             // BILLETES (BILLS)
+            { value: 10, type: 'BILL' },
             { value: 20, type: 'BILL' },
             { value: 50, type: 'BILL' },
             { value: 100, type: 'BILL' },
@@ -116,6 +116,17 @@ async function main() {
                 });
                 console.log(`  ✓ Creada denominación Bs ${denom.value} (${denom.type})`);
             }
+        }
+
+        // Limpieza: versiones anteriores registraban Bs 10 como moneda
+        const legacyCoin10 = await prisma.cashDenomination.findUnique({
+            where: { value_type: { value: '10', type: 'COIN' } },
+        });
+        if (legacyCoin10 && legacyCoin10.quantity === 0) {
+            await prisma.cashDenomination.delete({
+                where: { id: legacyCoin10.id },
+            });
+            console.log('  ✗ Eliminada denominación heredada Bs 10 (COIN)');
         }
 
         // ==========================================
