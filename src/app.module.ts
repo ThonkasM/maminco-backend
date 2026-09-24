@@ -18,6 +18,7 @@ import { PrintingModule } from './printing/printing.module';
 import { ReportsModule } from './reports/reports.module';
 import { AiModule } from './ai/ai.module';
 import { SystemModule } from './system/system.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { validate } from './config/env.validation';
 
 @Module({
@@ -47,6 +48,7 @@ import { validate } from './config/env.validation';
     ReportsModule,
     AiModule,
     SystemModule,
+    FeatureFlagsModule,
   ],
   controllers: [AppController],
   providers: [

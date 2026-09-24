@@ -538,7 +538,6 @@ model Expense {
 // ============================================
 // OBSERVABILIDAD / LOGS DEL SISTEMA
 // ============================================
-
 model SystemLog {
   id        String   @id @default(uuid())
   timestamp DateTime @default(now())
@@ -550,4 +549,20 @@ model SystemLog {
   @@index([timestamp])
   @@index([level])
   @@map("system_logs")
+}
+
+// ============================================
+// FEATURE FLAGS
+// ============================================
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g. waiter_can_remove_products
+  name        String
+  description String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_flags")
 }

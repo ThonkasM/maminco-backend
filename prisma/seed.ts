@@ -27,7 +27,7 @@ async function main() {
                 isActive: true,
             },
             {
-                name: 'TRANSFERENCIA BANCARIA',
+                name: 'Transferencia',
                 code: 'TRANSFER',
                 description: 'Transferencia bancaria o código QR',
                 isActive: true,
@@ -47,7 +47,21 @@ async function main() {
             });
 
             if (existing) {
-                console.log(`  ✓ Método "${method.name}" ya existe`);
+                if (
+                    existing.name !== method.name ||
+                    existing.description !== method.description
+                ) {
+                    await prisma.paymentMethod.update({
+                        where: { id: existing.id },
+                        data: {
+                            name: method.name,
+                            description: method.description,
+                        },
+                    });
+                    console.log(`  ✓ Actualizado método "${method.name}"`);
+                } else {
+                    console.log(`  ✓ Método "${method.name}" ya existe`);
+                }
             } else {
                 await prisma.paymentMethod.create({ data: method });
                 console.log(`  ✓ Creado método "${method.name}"`);
@@ -64,6 +78,8 @@ async function main() {
         // Los administradores pueden agregar/quitar denominaciones según cambios económicos
         const denominations = [
             // MONEDAS (COINS)
+            { value: 0.2, type: 'COIN' },
+            { value: 0.5, type: 'COIN' },
             { value: 1, type: 'COIN' },
             { value: 2, type: 'COIN' },
             { value: 5, type: 'COIN' },
@@ -168,6 +184,30 @@ async function main() {
             );
         }
         console.log('└─────────────────────────────────────────────────────────┘');
+
+        // ==========================================
+        // 4. FEATURE FLAGS
+        // ==========================================
+        console.log('\n🚩 Creando feature flags...');
+
+        const featureFlags = [
+            {
+                key: 'waiter_can_remove_products',
+                name: 'Meseros pueden quitar productos',
+                description:
+                    'Permite que los meseros ajusten cantidades y quiten productos de una orden. Si se desactiva, se ocultan los botones de + y − en el POS móvil.',
+                enabled: true,
+            },
+        ];
+
+        for (const flag of featureFlags) {
+            await prisma.featureFlag.upsert({
+                where: { key: flag.key },
+                update: { name: flag.name, description: flag.description },
+                create: flag,
+            });
+            console.log(`  ✓ Feature flag ${flag.key} listo`);
+        }
 
     } catch (error) {
         console.error('❌ Error durante el seed:', error);
