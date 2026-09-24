@@ -72,9 +72,9 @@ export class ReportsService {
       Prisma.sql`orders.status = 'CLOSED'`,
       Prisma.sql`(COALESCE(orders."closedAt", orders."createdAt") AT TIME ZONE ${tz}::text)::date BETWEEN ${from}::date AND ${to}::date`,
     ];
-    if (range.areaId) parts.push(Prisma.sql`areas.id = ${range.areaId}::uuid`);
+    if (range.areaId) parts.push(Prisma.sql`areas.id::text = ${range.areaId}`);
     if (range.tableId)
-      parts.push(Prisma.sql`tables.id = ${range.tableId}::uuid`);
+      parts.push(Prisma.sql`tables.id::text = ${range.tableId}`);
 
     return Prisma.join(parts, ' AND ');
   }
