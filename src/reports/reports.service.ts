@@ -1,36 +1,49 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { DailySalesDto, TopProductDto, DailyReportDto } from './dto';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  /** Business timezone used to define the "day" for reports. */
+  private get timeZone(): string {
+    return this.config.get<string>('REPORT_TIMEZONE') ?? 'America/La_Paz';
+  }
 
   /**
-   * Obtiene las ventas del día actual
+   * Obtiene las ventas del día actual.
+   *
+   * El "día" se define en la zona horaria del negocio y el momento de venta es
+   * `closedAt` (con `createdAt` como respaldo). Las columnas se aliasan entre
+   * comillas para conservar camelCase (Postgres pliega identificadores sin
+   * comillas a minúsculas).
    */
   async getTodaySales(): Promise<DailySalesDto> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayString = today.toISOString().split('T')[0];
+    const timeZone = this.timeZone;
 
     const result = await this.prisma.$queryRaw<any[]>`
-            SELECT 
-                COALESCE(CAST(SUM(orders.total) AS DECIMAL(10,2)), 0)::text as totalSales,
-                COALESCE(COUNT(DISTINCT orders.id), 0) as totalOrders,
-                COALESCE(CAST(AVG(orders.total) AS DECIMAL(10,2)), 0)::text as averageOrderValue,
-                COALESCE(CAST(SUM(orders."discountAmount") AS DECIMAL(10,2)), 0)::text as totalDiscount,
-                COALESCE(CAST(SUM(orders."tipAmount") AS DECIMAL(10,2)), 0)::text as totalTips,
-                COALESCE(SUM(CASE WHEN areas."isVirtual" = false THEN 1 ELSE 0 END), 0) as mesaOrders,
-                COALESCE(SUM(CASE WHEN areas."isVirtual" = true THEN 1 ELSE 0 END), 0) as virtualOrders
+            SELECT
+                COALESCE(CAST(SUM(orders.total) AS DECIMAL(10,2)), 0)::text AS "totalSales",
+                COALESCE(COUNT(DISTINCT orders.id), 0)::int AS "totalOrders",
+                COALESCE(CAST(AVG(orders.total) AS DECIMAL(10,2)), 0)::text AS "averageOrderValue",
+                COALESCE(CAST(SUM(orders."discountAmount") AS DECIMAL(10,2)), 0)::text AS "totalDiscount",
+                COALESCE(CAST(SUM(orders."tipAmount") AS DECIMAL(10,2)), 0)::text AS "totalTips",
+                COALESCE(SUM(CASE WHEN areas."isVirtual" = false THEN 1 ELSE 0 END), 0)::int AS "mesaOrders",
+                COALESCE(SUM(CASE WHEN areas."isVirtual" = true THEN 1 ELSE 0 END), 0)::int AS "virtualOrders"
             FROM orders
             JOIN tables ON orders."tableId" = tables.id
             JOIN areas ON tables."areaId" = areas.id
             WHERE orders.status = 'CLOSED'
-                AND DATE(orders."createdAt") = ${todayString}::date
+                AND (COALESCE(orders."closedAt", orders."createdAt") AT TIME ZONE ${timeZone})::date
+                    = (now() AT TIME ZONE ${timeZone})::date
         `;
 
-    const data = result[0] || {};
+    const data = result[0] ?? {};
 
     return {
       totalSales: data.totalSales ? Number(data.totalSales) : 0,
@@ -49,34 +62,33 @@ export class ReportsService {
    * Obtiene los productos más vendidos del día
    */
   async getTodayTopProducts(limit: number = 10): Promise<TopProductDto[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayString = today.toISOString().split('T')[0];
+    const timeZone = this.timeZone;
 
     const results = await this.prisma.$queryRaw<any[]>`
-            SELECT 
-                products.id,
-                products.name as productName,
-                categories.name as categoryName,
-                SUM(order_items.quantity) as totalQuantity,
-                CAST(AVG(order_items."unitPrice") AS DECIMAL(10,2))::text as unitPrice,
-                CAST(SUM(order_items.subtotal) AS DECIMAL(10,2))::text as totalRevenue
+            SELECT
+                products.id AS "productId",
+                products.name AS "productName",
+                categories.name AS "categoryName",
+                SUM(order_items.quantity)::int AS "quantitySold",
+                CAST(AVG(order_items."unitPrice") AS DECIMAL(10,2))::text AS "unitPrice",
+                CAST(SUM(order_items.subtotal) AS DECIMAL(10,2))::text AS "totalRevenue"
             FROM order_items
             JOIN products ON order_items."productId" = products.id
             JOIN categories ON products."categoryId" = categories.id
             JOIN orders ON order_items."orderId" = orders.id
             WHERE orders.status = 'CLOSED'
-                AND DATE(orders."createdAt") = ${todayString}::date
+                AND (COALESCE(orders."closedAt", orders."createdAt") AT TIME ZONE ${timeZone})::date
+                    = (now() AT TIME ZONE ${timeZone})::date
             GROUP BY products.id, products.name, categories.name
-            ORDER BY totalQuantity DESC
+            ORDER BY "quantitySold" DESC
             LIMIT ${limit}
         `;
 
     return results.map((row) => ({
-      productId: row.id,
+      productId: row.productId,
       productName: row.productName,
       categoryName: row.categoryName,
-      quantitySold: Number(row.totalQuantity) || 0,
+      quantitySold: Number(row.quantitySold) || 0,
       unitPrice: row.unitPrice ? Number(row.unitPrice) : 0,
       totalRevenue: row.totalRevenue ? Number(row.totalRevenue) : 0,
     }));
@@ -86,14 +98,11 @@ export class ReportsService {
    * Obtiene el reporte diario completo (ventas del día + top productos)
    */
   async getDailyReport(limit: number = 10): Promise<DailyReportDto> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const sales = await this.getTodaySales();
     const topProducts = await this.getTodayTopProducts(limit);
 
     return {
-      date: today,
+      date: new Date(),
       sales,
       topProducts,
     };

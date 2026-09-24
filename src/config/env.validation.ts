@@ -57,6 +57,10 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsNumberString()
   LOG_MAX_ROWS?: string;
+
+  @IsOptional()
+  @IsString()
+  REPORT_TIMEZONE?: string;
 }
 
 export function validate(config: Record<string, unknown>) {
