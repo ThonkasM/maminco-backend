@@ -9,6 +9,8 @@ export class ProductResponseDto {
   stockGroupName?: string; // Nombre del grupo de stock si existe
   individualStock?: number; // Stock individual si existe
   isAvailable: boolean;
+  imageKey?: string;
+  image?: { thumb: string; large: string } | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

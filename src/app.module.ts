@@ -7,7 +7,6 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { DebugModule } from './debug/debug.module';
 import { AreasModule } from './areas/areas.module';
 import { TablesModule } from './tables/tables.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -17,8 +16,14 @@ import { PaymentsModule } from './payments/payments.module';
 import { PrintingModule } from './printing/printing.module';
 import { ReportsModule } from './reports/reports.module';
 import { AiModule } from './ai/ai.module';
+import { InsightsModule } from './insights/insights.module';
 import { SystemModule } from './system/system.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ClosuresModule } from './closures/closures.module';
+import { RepositoryModule } from './repository/repository.module';
+import { ShiftsModule } from './shifts/shifts.module';
+import { MenuModule } from './menu/menu.module';
 import { validate } from './config/env.validation';
 
 @Module({
@@ -37,7 +42,6 @@ import { validate } from './config/env.validation';
     PrismaModule,
     AuthModule,
     UsersModule,
-    DebugModule,
     AreasModule,
     TablesModule,
     CategoriesModule,
@@ -47,8 +51,14 @@ import { validate } from './config/env.validation';
     PrintingModule,
     ReportsModule,
     AiModule,
+    InsightsModule,
     SystemModule,
     FeatureFlagsModule,
+    NotificationsModule,
+    MenuModule,
+    ShiftsModule,
+    RepositoryModule,
+    ClosuresModule,
   ],
   controllers: [AppController],
   providers: [

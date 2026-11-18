@@ -1,3 +1,10 @@
+import { Category } from '@prisma/client';
+
+type CategorySource = Pick<
+  Category,
+  'id' | 'name' | 'description' | 'isActive' | 'createdAt' | 'updatedAt'
+>;
+
 export class CategoryResponseDto {
   id: string;
   name: string;
@@ -7,10 +14,10 @@ export class CategoryResponseDto {
   updatedAt: Date;
   productsCount?: number; // Cantidad de productos en la categoría
 
-  constructor(category: any, productsCount?: number) {
+  constructor(category: CategorySource, productsCount?: number) {
     this.id = category.id;
     this.name = category.name;
-    this.description = category.description;
+    this.description = category.description ?? undefined;
     this.isActive = category.isActive;
     this.createdAt = category.createdAt;
     this.updatedAt = category.updatedAt;

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreatePaymentMethodDto,
@@ -10,19 +11,11 @@ import {
   PaymentMethodResponseDto,
 } from './dto';
 
-/**
- * Servicio para gestionar métodos de pago
- * CRUD completo para métodos de pago (EFECTIVO, TRANSFERENCIA, TARJETA, etc.)
- */
 @Injectable()
 export class PaymentMethodsService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Crear nuevo método de pago
-   */
   async create(dto: CreatePaymentMethodDto): Promise<PaymentMethodResponseDto> {
-    // Validar que no exista un método con el mismo nombre
     const existing = await this.prisma.paymentMethod.findFirst({
       where: {
         OR: [{ name: dto.name }, { code: dto.code }],
@@ -47,9 +40,6 @@ export class PaymentMethodsService {
     return this.mapToResponseDto(paymentMethod);
   }
 
-  /**
-   * Listar todos los métodos de pago
-   */
   async findAll(includeInactive = false): Promise<PaymentMethodResponseDto[]> {
     const paymentMethods = await this.prisma.paymentMethod.findMany({
       where: includeInactive ? {} : { isActive: true, deletedAt: null },
@@ -59,9 +49,6 @@ export class PaymentMethodsService {
     return paymentMethods.map((method) => this.mapToResponseDto(method));
   }
 
-  /**
-   * Obtener método de pago por ID
-   */
   async findById(id: string): Promise<PaymentMethodResponseDto> {
     const paymentMethod = await this.prisma.paymentMethod.findUnique({
       where: { id },
@@ -76,9 +63,6 @@ export class PaymentMethodsService {
     return this.mapToResponseDto(paymentMethod);
   }
 
-  /**
-   * Obtener método de pago por código
-   */
   async findByCode(code: string): Promise<PaymentMethodResponseDto> {
     const paymentMethod = await this.prisma.paymentMethod.findUnique({
       where: { code },
@@ -93,17 +77,12 @@ export class PaymentMethodsService {
     return this.mapToResponseDto(paymentMethod);
   }
 
-  /**
-   * Actualizar método de pago
-   */
   async update(
     id: string,
     dto: UpdatePaymentMethodDto,
   ): Promise<PaymentMethodResponseDto> {
-    // Verificar que existe
     await this.findById(id);
 
-    // Validar que no exista otro con el mismo nombre o código
     if (dto.name || dto.code) {
       const existing = await this.prisma.paymentMethod.findFirst({
         where: {
@@ -137,14 +116,9 @@ export class PaymentMethodsService {
     return this.mapToResponseDto(updated);
   }
 
-  /**
-   * Eliminar (soft delete) método de pago
-   */
   async delete(id: string): Promise<void> {
-    // Verificar que existe
     await this.findById(id);
 
-    // Verificar que no tiene pagos asociados
     const paymentCount = await this.prisma.payment.count({
       where: { paymentMethodId: id },
     });
@@ -165,14 +139,10 @@ export class PaymentMethodsService {
     });
   }
 
-  /**
-   * Activar/Desactivar método de pago
-   */
   async toggleActive(
     id: string,
     isActive: boolean,
   ): Promise<PaymentMethodResponseDto> {
-    // Verificar que existe
     await this.findById(id);
 
     const updated = await this.prisma.paymentMethod.update({
@@ -186,15 +156,14 @@ export class PaymentMethodsService {
     return this.mapToResponseDto(updated);
   }
 
-  /**
-   * Mapear entidad Prisma a DTO de respuesta
-   */
-  private mapToResponseDto(paymentMethod: any): PaymentMethodResponseDto {
+  private mapToResponseDto(
+    paymentMethod: PaymentMethod,
+  ): PaymentMethodResponseDto {
     return {
       id: paymentMethod.id,
       name: paymentMethod.name,
       code: paymentMethod.code,
-      description: paymentMethod.description,
+      description: paymentMethod.description ?? undefined,
       isActive: paymentMethod.isActive,
       createdAt: paymentMethod.createdAt,
       updatedAt: paymentMethod.updatedAt,

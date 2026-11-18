@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import { resolve } from 'node:path';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { buildSwaggerConfig } from './config/swagger.config';
 import { AppLogger } from './system/app-logger.service';
 import {
   SocketIoAdapter,
@@ -11,9 +14,13 @@ import {
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   app.useLogger(app.get(AppLogger));
 
+  app.set('trust proxy', 1);
+  app.enableShutdownHooks();
   app.use(helmet());
   app.useWebSocketAdapter(new SocketIoAdapter(app));
 
@@ -36,21 +43,32 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Maminco API')
-    .setDescription('Restaurant POS API (orders, payments, tables, reports)')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
   SwaggerModule.setup(
     'api/docs',
     app,
-    SwaggerModule.createDocument(app, swaggerConfig),
+    SwaggerModule.createDocument(app, buildSwaggerConfig()),
   );
+
+  if (process.env.STORAGE_DRIVER !== 's3') {
+    // Only product images are public. `uploads/reports` (documents) is never mounted here.
+    app.useStaticAssets(
+      resolve(process.env.UPLOADS_DIR ?? './uploads', 'products'),
+      {
+        prefix: '/uploads/products/',
+        maxAge: '365d',
+        immutable: true,
+        index: false,
+        dotfiles: 'deny',
+        setHeaders: (res) => {
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
+      },
+    );
+  }
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   logger.log(`Servidor iniciado en http://localhost:${port}`);
   logger.log(`CORS habilitado para: ${JSON.stringify(corsOrigin)}`);
 }
-bootstrap();
+void bootstrap();

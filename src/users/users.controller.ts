@@ -29,20 +29,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  /**
-   * Crear nuevo usuario
-   * Solo administradores pueden crear usuarios
-   */
   @Post()
   @Roles(UserRole.ADMINISTRATOR)
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(createUserDto);
   }
 
-  /**
-   * Obtener lista de usuarios con paginación
-   * Solo administradores pueden listar usuarios
-   */
   @Get()
   @Roles(UserRole.ADMINISTRATOR)
   async findAll(
@@ -51,10 +43,6 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
 
-  /**
-   * Obtener usuario por ID
-   * Solo administradores pueden obtener detalles de usuarios
-   */
   @Get(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async findById(
@@ -63,10 +51,6 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-  /**
-   * Actualizar usuario
-   * Solo administradores pueden actualizar usuarios
-   */
   @Patch(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async update(
@@ -76,10 +60,6 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  /**
-   * Desactivar usuario (soft delete)
-   * Solo administradores pueden desactivar usuarios
-   */
   @Delete(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async deactivate(
@@ -88,10 +68,6 @@ export class UsersController {
     return this.usersService.deactivate(id);
   }
 
-  /**
-   * Cambiar contraseña de un usuario (como administrador)
-   * Solo administradores pueden resetear contraseñas
-   */
   @Post(':id/reset-password')
   @Roles(UserRole.ADMINISTRATOR)
   async resetPassword(

@@ -7,7 +7,7 @@ import {
   IsString,
   IsEnum,
 } from 'class-validator';
-import { OrderStatus } from '@prisma/client';
+import { OrderKitchenStatus, OrderStatus } from '@prisma/client';
 
 export class ListOrdersQueryDto {
   @IsOptional()
@@ -25,6 +25,10 @@ export class ListOrdersQueryDto {
   @IsEnum(OrderStatus)
   @IsOptional()
   status?: OrderStatus; // Filtrar por estado
+
+  @IsEnum(OrderKitchenStatus)
+  @IsOptional()
+  kitchenStatus?: OrderKitchenStatus; // Filtrar por estado de cocina
 
   @IsUUID()
   @IsOptional()

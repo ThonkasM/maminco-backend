@@ -1,233 +1,215 @@
-import { ParseUUIDPipe } from '@nestjs/common';
+import type { AuthUser } from '../auth/auth-user';
 import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Delete,
+  BadRequestException,
   Body,
+  Controller,
+  Delete,
+  Get,
   Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
   UseGuards,
-  BadRequestException,
 } from '@nestjs/common';
-import { OrdersService } from './orders.service';
 import {
-  CreateOrderDto,
   AddOrderItemDto,
-  UpdateOrderItemDto,
-  ChangeOrderStatusDto,
   ApplyDiscountDto,
+  AuditOrdersQueryDto,
+  ChangeOrderStatusDto,
+  CreateOrderDto,
   ListOrdersQueryDto,
+  UpdateKitchenStatusDto,
+  UpdateOrderItemDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { OrdersQueryService } from './application/orders-query.service';
+import { CreateOrderUseCase } from './application/use-cases/create-order.use-case';
+import { ChangeOrderStatusUseCase } from './application/use-cases/change-order-status.use-case';
+import { ChangeKitchenStatusUseCase } from './application/use-cases/change-kitchen-status.use-case';
+import { AddOrderItemUseCase } from './application/use-cases/add-order-item.use-case';
+import { RemoveOrderItemUseCase } from './application/use-cases/remove-order-item.use-case';
+import { UpdateOrderItemUseCase } from './application/use-cases/update-order-item.use-case';
+import { ApplyDiscountUseCase } from './application/use-cases/apply-discount.use-case';
+import { AddTipUseCase } from './application/use-cases/add-tip.use-case';
+
+const clampPage = (page: string) => Math.max(1, parseInt(page) || 1);
+const clampLimit = (limit: string) =>
+  Math.max(1, Math.min(500, parseInt(limit) || 50));
 
 @Controller('api/orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly queries: OrdersQueryService,
+    private readonly createOrder: CreateOrderUseCase,
+    private readonly changeStatus: ChangeOrderStatusUseCase,
+    private readonly changeKitchenStatus: ChangeKitchenStatusUseCase,
+    private readonly addItem: AddOrderItemUseCase,
+    private readonly removeItem: RemoveOrderItemUseCase,
+    private readonly updateItem: UpdateOrderItemUseCase,
+    private readonly applyDiscount: ApplyDiscountUseCase,
+    private readonly addTip: AddTipUseCase,
+  ) {}
 
-  /**
-   * Crea una nueva orden
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Post()
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async create(@Body() dto: CreateOrderDto, @CurrentUser() user: any) {
-    return this.ordersService.create(dto, user?.id ?? user?.sub);
+  create(@Body() dto: CreateOrderDto, @CurrentUser() user: AuthUser) {
+    return this.createOrder.execute(dto, user?.id ?? user?.sub);
   }
 
-  /**
-   * Lista órdenes con filtros avanzados
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Get()
-  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async findAll(@Query() query: ListOrdersQueryDto) {
-    return this.ordersService.findAll(query);
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR', 'COOK')
+  findAll(@Query() query: ListOrdersQueryDto) {
+    return this.queries.findAll(query);
   }
 
-  /**
-   * Obtiene una orden por ID
-   */
+  @Get('audit')
+  @Roles('MANAGER', 'ADMINISTRATOR')
+  audit(@Query() query: AuditOrdersQueryDto) {
+    return this.queries.audit(query);
+  }
+
+  @Get('kitchen')
+  @Roles('COOK', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
+  findKitchenOrders() {
+    return this.queries.getKitchenOrders();
+  }
+
   @Get(':id')
-  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async findById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ordersService.findById(id);
+  @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR', 'COOK')
+  findById(@Param('id', ParseUUIDPipe) id: string) {
+    return this.queries.findById(id);
   }
 
-  /**
-   * Obtiene la orden activa (DRAFT) de una mesa específica
-   * Retorna null si no hay orden abierta en esa mesa
-   * Útil para UI: al entrar a una mesa, verificar si ya hay orden
-   */
   @Get('table/:tableId/active')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async getActiveOrderByTable(
-    @Param('tableId', ParseUUIDPipe) tableId: string,
-  ) {
-    return this.ordersService.getActiveOrderByTable(tableId);
+  getActiveOrderByTable(@Param('tableId', ParseUUIDPipe) tableId: string) {
+    return this.queries.getActiveOrderByTable(tableId);
   }
 
-  /**
-   * Cambia el estado de una orden
-   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Patch(':id/status')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async changeStatus(
+  updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeOrderStatusDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.ordersService.changeStatus(id, dto, user.sub);
+    return this.changeStatus.execute(id, dto, user.sub);
   }
 
-  /**
-   * Añade un item a una orden
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   */
+  @Patch(':id/kitchen-status')
+  @Roles('COOK', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
+  updateKitchenStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateKitchenStatusDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.changeKitchenStatus.execute(id, dto, user.sub);
+  }
+
   @Post(':id/items')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async addItem(
+  postItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddOrderItemDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.ordersService.addItem(id, dto, user.sub);
+    return this.addItem.execute(id, dto, user.sub);
   }
 
-  /**
-   * Elimina un item de una orden
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Delete(':id/items/:itemId')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async removeItem(
+  deleteItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.ordersService.removeItem(id, itemId, user.sub);
+    return this.removeItem.execute(id, itemId, {
+      id: user.sub,
+      role: user.role,
+    });
   }
 
-  /**
-   * Actualiza la cantidad de un item en una orden (sin eliminar y re-crear)
-   * Mantiene la posición y el ID del item
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Patch(':id/items/:itemId')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async updateItemQuantity(
+  patchItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: UpdateOrderItemDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.ordersService.updateItemQuantity(id, itemId, dto, user.sub);
+    return this.updateItem.execute(id, itemId, dto, {
+      id: user.sub,
+      role: user.role,
+    });
   }
 
-  /**
-   * Aplica un descuento a una orden
-   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Patch(':id/discount')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async applyDiscount(
+  patchDiscount(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ApplyDiscountDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.ordersService.applyDiscount(id, dto, user.sub);
+    return this.applyDiscount.execute(id, dto, user.sub);
   }
 
-  /**
-   * Agrega propina a una orden
-   * Roles permitidos: CASHIER, MANAGER, ADMINISTRATOR
-   */
   @Patch(':id/tip')
   @Roles('CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async addTip(
+  patchTip(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('tipAmount') tipAmount: number,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
     if (tipAmount === undefined || tipAmount === null) {
       throw new BadRequestException('tipAmount es requerido');
     }
-    return this.ordersService.addTip(id, tipAmount, user.sub);
+    return this.addTip.execute(id, tipAmount, user.sub);
   }
 
-  /**
-   * Obtiene estadísticas de ingresos
-   * Roles permitidos: MANAGER, ADMINISTRATOR
-   */
   @Get('stats/revenue')
   @Roles('MANAGER', 'ADMINISTRATOR')
-  async getRevenueStats() {
-    return this.ordersService.getRevenueStats();
+  getRevenueStats() {
+    return this.queries.getRevenueStats();
   }
 
-  /**
-   * Obtiene órdenes agrupadas por estado
-   * Roles permitidos: MANAGER, ADMINISTRATOR
-   */
   @Get('stats/by-status')
   @Roles('MANAGER', 'ADMINISTRATOR')
-  async getOrdersByStatus() {
-    return this.ordersService.getOrdersByStatus();
+  getOrdersByStatus() {
+    return this.queries.getOrdersByStatus();
   }
 
-  /**
-   * Obtiene órdenes agrupadas por tipo de servicio
-   * Roles permitidos: MANAGER, ADMINISTRATOR
-   */
   @Get('stats/by-service-type')
   @Roles('MANAGER', 'ADMINISTRATOR')
-  async getOrdersByServiceType() {
-    return this.ordersService.getOrdersByServiceType();
+  getOrdersByServiceType() {
+    return this.queries.getOrdersByServiceType();
   }
 
-  /**
-   * Obtiene el historial completo de una orden
-   * Incluye: quién hizo qué, cuándo, y metadata del cambio
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   * Query params: page (default: 1), limit (default: 50, max: 500)
-   */
   @Get(':id/history')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async getOrderHistory(
+  getOrderHistory(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {
-    return this.ordersService.getOrderHistory(
-      id,
-      Math.max(1, parseInt(page) || 1),
-      Math.max(1, Math.min(500, parseInt(limit) || 50)),
-    );
+    return this.queries.getOrderHistory(id, clampPage(page), clampLimit(limit));
   }
 
-  /**
-   * Obtiene timeline visual simplificado de una orden
-   * Formato: emoji + acción legible, ideal para UI
-   * Roles permitidos: WAITER, CASHIER, MANAGER, ADMINISTRATOR
-   * Query params: page (default: 1), limit (default: 50, max: 500)
-   */
   @Get(':id/history/timeline')
   @Roles('WAITER', 'CASHIER', 'MANAGER', 'ADMINISTRATOR')
-  async getOrderHistoryTimeline(
+  getOrderHistoryTimeline(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {
-    return this.ordersService.getOrderHistoryTimeline(
+    return this.queries.getOrderHistoryTimeline(
       id,
-      Math.max(1, parseInt(page) || 1),
-      Math.max(1, Math.min(500, parseInt(limit) || 50)),
+      clampPage(page),
+      clampLimit(limit),
     );
   }
 }

@@ -4,9 +4,12 @@ import {
   IsNumberString,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
   validateSync,
 } from 'class-validator';
+
+import { JWT_EXPIRES_IN_PATTERN } from './jwt.config';
 
 export class EnvironmentVariables {
   @IsString()
@@ -23,7 +26,9 @@ export class EnvironmentVariables {
   PORT?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(JWT_EXPIRES_IN_PATTERN, {
+    message: 'JWT_EXPIRES_IN must be seconds or a duration like 15m, 12h, 7d',
+  })
   JWT_EXPIRES_IN?: string;
 
   @IsOptional()

@@ -1,10 +1,17 @@
+export interface ReportHeatmapCellDto {
+  weekday: number;
+  hour: number;
+  totalSales: number;
+  totalOrders: number;
+}
+
 export class DailySalesDto {
   totalSales: number;
   totalOrders: number;
   averageOrderValue: number;
   totalDiscount: number;
   totalTips: number;
-  mesaOrders: number;
+  tableOrders: number;
   virtualOrders: number;
 }
 

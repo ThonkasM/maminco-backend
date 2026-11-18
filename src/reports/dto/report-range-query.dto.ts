@@ -16,6 +16,7 @@ export const BREAKDOWN_DIMENSIONS = [
   'paymentMethod',
   'hour',
   'waiter',
+  'shift',
 ] as const;
 
 export type BreakdownDimension = (typeof BREAKDOWN_DIMENSIONS)[number];
@@ -36,6 +37,10 @@ export class ReportRangeQueryDto {
   @IsOptional()
   @IsUUID()
   tableId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  shiftId?: string;
 }
 
 export class ReportTimeSeriesQueryDto extends ReportRangeQueryDto {

@@ -8,8 +8,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
+import { WsAuthService } from '../auth/ws-auth.service';
 
 @WebSocketGateway({ namespace: '/payments' })
 export class PaymentsGateway
@@ -18,10 +17,7 @@ export class PaymentsGateway
   @WebSocketServer() server: Server;
   private readonly logger = new Logger('PaymentsGateway');
 
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly wsAuth: WsAuthService) {}
 
   afterInit(_server: Server) {
     this.logger.log('WebSocket de pagos inicializado');
@@ -29,23 +25,11 @@ export class PaymentsGateway
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth?.token;
-      if (!token) {
+      const user = await this.wsAuth.authenticate(client);
+      if (!user) {
         client.disconnect();
         return;
       }
-
-      const payload = this.jwtService.verify<{ sub: string }>(token);
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: { id: true, isActive: true, deletedAt: true },
-      });
-
-      if (!user || !user.isActive || user.deletedAt) {
-        client.disconnect();
-        return;
-      }
-
       client.data.userId = user.id;
     } catch (error) {
       this.logger.warn(
@@ -123,16 +107,16 @@ export class PaymentsGateway
   }
 
   @SubscribeMessage('joinOrder')
-  handleJoinOrder(client: Socket, data: unknown) {
+  async handleJoinOrder(client: Socket, data: unknown) {
     const orderId = (data as { orderId?: unknown })?.orderId;
     if (typeof orderId !== 'string' || !orderId) return;
-    client.join(`order-${orderId}`);
+    await client.join(`order-${orderId}`);
   }
 
   @SubscribeMessage('joinTable')
-  handleJoinTable(client: Socket, data: unknown) {
+  async handleJoinTable(client: Socket, data: unknown) {
     const tableId = (data as { tableId?: unknown })?.tableId;
     if (typeof tableId !== 'string' || !tableId) return;
-    client.join(`table-${tableId}`);
+    await client.join(`table-${tableId}`);
   }
 }

@@ -16,13 +16,9 @@ import {
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Crear nueva categoría
-   */
   async create(
     createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryResponseDto> {
-    // Validar que el nombre no exista
     const existingCategory = await this.prisma.category.findUnique({
       where: { name: createCategoryDto.name },
     });
@@ -33,7 +29,6 @@ export class CategoriesService {
       );
     }
 
-    // Crear categoría
     const category = await this.prisma.category.create({
       data: {
         name: createCategoryDto.name,
@@ -44,9 +39,6 @@ export class CategoriesService {
     return new CategoryResponseDto(category);
   }
 
-  /**
-   * Obtener lista de categorías con paginación
-   */
   async findAll(
     query: ListCategoriesQueryDto,
   ): Promise<PaginatedCategoryResponseDto<CategoryResponseDto>> {
@@ -76,18 +68,11 @@ export class CategoriesService {
     ]);
 
     const categoryDtos = categories.map(
-      (category) =>
-        new CategoryResponseDto(
-          category,
-          (category as any)._count?.products || 0,
-        ),
+      (category) => new CategoryResponseDto(category, category._count.products),
     );
     return new PaginatedCategoryResponseDto(categoryDtos, total, page, limit);
   }
 
-  /**
-   * Obtener categoría por ID
-   */
   async findById(id: string): Promise<CategoryResponseDto> {
     const category = await this.prisma.category.findUnique({
       where: { id },
@@ -102,20 +87,13 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    return new CategoryResponseDto(
-      category,
-      (category as any)._count?.products || 0,
-    );
+    return new CategoryResponseDto(category, category._count.products);
   }
 
-  /**
-   * Actualizar categoría
-   */
   async update(
     id: string,
     updateCategoryDto: UpdateCategoryDto,
   ): Promise<CategoryResponseDto> {
-    // Verificar que la categoría existe
     const category = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -124,7 +102,6 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    // Si está actualizando el nombre, verificar que no exista
     if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
       const existingCategory = await this.prisma.category.findUnique({
         where: { name: updateCategoryDto.name },
@@ -137,7 +114,6 @@ export class CategoriesService {
       }
     }
 
-    // Actualizar categoría
     const updatedCategory = await this.prisma.category.update({
       where: { id },
       data: updateCategoryDto,
@@ -154,11 +130,7 @@ export class CategoriesService {
     );
   }
 
-  /**
-   * Desactivar/Eliminar categoría (soft delete)
-   */
   async deactivate(id: string): Promise<CategoryResponseDto> {
-    // Verificar que la categoría existe
     const category = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -166,8 +138,6 @@ export class CategoriesService {
     if (!category || category.deletedAt) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
-
-    // Soft delete: establecer deletedAt e isActive = false
     const deletedCategory = await this.prisma.category.update({
       where: { id },
       data: {
@@ -187,10 +157,6 @@ export class CategoriesService {
     );
   }
 
-  /**
-   * Obtener todas las categorías activas (sin paginación)
-   * Útil para select/dropdown en UI
-   */
   async getAllActive(): Promise<CategoryResponseDto[]> {
     const categories = await this.prisma.category.findMany({
       where: {
@@ -206,11 +172,7 @@ export class CategoriesService {
     });
 
     return categories.map(
-      (category) =>
-        new CategoryResponseDto(
-          category,
-          (category as any)._count?.products || 0,
-        ),
+      (category) => new CategoryResponseDto(category, category._count.products),
     );
   }
 }

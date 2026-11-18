@@ -4,6 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  describeAvailability,
+  describePriceChange,
+} from '../notifications/domain/notification-rules';
+import { MediaService } from '../media/media.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateProductDto,
@@ -15,12 +21,15 @@ import {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly media: MediaService,
+  ) {}
 
   async create(
     createProductDto: CreateProductDto,
   ): Promise<ProductResponseDto> {
-    // ✅ Validar que el nombre no exista ya (único)
     const existingProduct = await this.prisma.product.findFirst({
       where: {
         name: createProductDto.name,
@@ -34,7 +43,6 @@ export class ProductsService {
       );
     }
 
-    // Validar que la categoría existe y está activa
     const category = await this.prisma.category.findUnique({
       where: { id: createProductDto.categoryId },
     });
@@ -43,7 +51,6 @@ export class ProductsService {
       throw new BadRequestException('La categoría no existe o no está activa');
     }
 
-    // Si se proporciona stockGroupId, validar que exista y esté activo
     if (createProductDto.stockGroupId) {
       const stockGroup = await this.prisma.stockGroup.findUnique({
         where: { id: createProductDto.stockGroupId },
@@ -55,7 +62,6 @@ export class ProductsService {
         );
       }
 
-      // Si se proporciona stockGroupId, no se debe proporcionar individualStock
       if (
         createProductDto.individualStock !== undefined &&
         createProductDto.individualStock !== null
@@ -65,8 +71,6 @@ export class ProductsService {
         );
       }
     }
-    // ✅ CAMBIO: Stock es completamente opcional en registro inicial
-    // El stock se puede registrar después mediante PUT endpoint dedicado
 
     const product = await this.prisma.product.create({
       data: {
@@ -102,7 +106,7 @@ export class ProductsService {
     } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       deletedAt: null,
     };
 
@@ -179,7 +183,6 @@ export class ProductsService {
     page: number = 1,
     limit: number = 10,
   ): Promise<PaginatedProductResponseDto> {
-    // Validar que la categoría existe
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
     });
@@ -235,7 +238,6 @@ export class ProductsService {
       throw new NotFoundException('Producto no encontrado');
     }
 
-    // ✅ Si se actualiza el nombre, validar que sea único
     if (updateProductDto.name) {
       const existingProduct = await this.prisma.product.findFirst({
         where: {
@@ -252,7 +254,6 @@ export class ProductsService {
       }
     }
 
-    // Si se actualiza la categoría, validarla
     if (updateProductDto.categoryId) {
       const category = await this.prisma.category.findUnique({
         where: { id: updateProductDto.categoryId },
@@ -265,7 +266,6 @@ export class ProductsService {
       }
     }
 
-    // Si se actualiza el stockGroupId, validarlo
     if (updateProductDto.stockGroupId) {
       const stockGroup = await this.prisma.stockGroup.findUnique({
         where: { id: updateProductDto.stockGroupId },
@@ -278,7 +278,7 @@ export class ProductsService {
       }
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.ProductUncheckedUpdateInput = {};
 
     if (updateProductDto.name !== undefined) {
       updateData.name = updateProductDto.name;
@@ -321,7 +321,62 @@ export class ProductsService {
       },
     });
 
+    this.notifyChanges(product, updatedProduct);
+
     return this.mapToProductResponse(updatedProduct);
+  }
+
+  private notifyChanges(
+    before: { name: string; price: Prisma.Decimal; isAvailable: boolean },
+    after: { name: string; price: Prisma.Decimal; isAvailable: boolean },
+  ) {
+    if (!before.price.equals(after.price)) {
+      void this.notifications.publishAutomatic(
+        'PRICE_UPDATE',
+        describePriceChange(
+          after.name,
+          Number(before.price),
+          Number(after.price),
+        ),
+      );
+    }
+    if (before.isAvailable !== after.isAvailable) {
+      void this.notifications.publishAutomatic(
+        'MENU_UPDATE',
+        describeAvailability([after.name], after.isAvailable),
+      );
+    }
+  }
+
+  async setImage(id: string, file: Buffer): Promise<ProductResponseDto> {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product || product.deletedAt) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+    const imageKey = await this.media.saveProductImage(id, file);
+    const updated = await this.prisma.product.update({
+      where: { id },
+      data: { imageKey },
+      include: { category: true, stockGroup: true },
+    });
+    if (product.imageKey && product.imageKey !== imageKey) {
+      await this.media.remove(product.imageKey);
+    }
+    return this.mapToProductResponse(updated);
+  }
+
+  async removeImage(id: string): Promise<ProductResponseDto> {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product || product.deletedAt) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+    const updated = await this.prisma.product.update({
+      where: { id },
+      data: { imageKey: null },
+      include: { category: true, stockGroup: true },
+    });
+    await this.media.remove(product.imageKey);
+    return this.mapToProductResponse(updated);
   }
 
   async deactivate(id: string): Promise<ProductResponseDto> {
@@ -393,7 +448,7 @@ export class ProductsService {
     search?: string,
     limit: number = 50,
   ): Promise<ProductResponseDto[]> {
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       isAvailable: true,
       isActive: true,
       deletedAt: null,
@@ -403,7 +458,6 @@ export class ProductsService {
       where.categoryId = categoryId;
     }
 
-    // ✅ Agregar búsqueda por nombre
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -424,7 +478,6 @@ export class ProductsService {
     return products.map((product) => this.mapToProductResponse(product));
   }
 
-  // ✅ Nuevo método para obtener disponibilidad de stock
   async getProductAvailability(id: string): Promise<any> {
     const product = await this.prisma.product.findUnique({
       where: { id },
@@ -440,10 +493,8 @@ export class ProductsService {
     let availableStock: number | null = null;
 
     if (product.individualStock !== null) {
-      // Si tiene stock individual, usar ese
       availableStock = product.individualStock;
     } else if (product.stockGroupId && product.stockGroup) {
-      // Si pertenece a un grupo, usar el stock del grupo
       availableStock = product.stockGroup.stock || 0;
     }
 
@@ -459,18 +510,24 @@ export class ProductsService {
     };
   }
 
-  private mapToProductResponse(product: any): ProductResponseDto {
+  private mapToProductResponse(
+    product: Prisma.ProductGetPayload<{
+      include: { category: true; stockGroup: true };
+    }>,
+  ): ProductResponseDto {
     return {
       id: product.id,
       name: product.name,
-      description: product.description,
+      description: product.description ?? undefined,
       price: Number(product.price),
       categoryId: product.categoryId,
       categoryName: product.category?.name || 'Sin categoría',
-      stockGroupId: product.stockGroupId,
+      stockGroupId: product.stockGroupId ?? undefined,
       stockGroupName: product.stockGroup?.name,
-      individualStock: product.individualStock,
+      individualStock: product.individualStock ?? undefined,
       isAvailable: product.isAvailable,
+      imageKey: product.imageKey ?? undefined,
+      image: this.media.urlsFor(product.imageKey),
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

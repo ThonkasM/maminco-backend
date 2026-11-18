@@ -1,3 +1,11 @@
+import { Area } from '@prisma/client';
+
+type AreaSource = Pick<
+  Area,
+  'id' | 'name' | 'description' | 'isActive' | 'createdAt' | 'updatedAt'
+> &
+  Partial<Pick<Area, 'isVirtual'>>;
+
 export class AreaResponseDto {
   id: string;
   name: string;
@@ -8,10 +16,10 @@ export class AreaResponseDto {
   updatedAt: Date;
   tablesCount?: number; // Cantidad de mesas en el área
 
-  constructor(area: any, tablesCount?: number) {
+  constructor(area: AreaSource, tablesCount?: number) {
     this.id = area.id;
     this.name = area.name;
-    this.description = area.description;
+    this.description = area.description ?? undefined;
     this.isVirtual = area.isVirtual ?? false;
     this.isActive = area.isActive;
     this.createdAt = area.createdAt;

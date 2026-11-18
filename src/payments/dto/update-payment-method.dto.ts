@@ -1,8 +1,5 @@
 import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
-/**
- * DTO para actualizar un método de pago
- */
 export class UpdatePaymentMethodDto {
   @IsOptional()
   @IsString()

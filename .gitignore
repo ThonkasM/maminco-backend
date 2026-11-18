@@ -56,3 +56,7 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+openapi.json
+
+# Local image storage (mirrors the S3 key layout)
+/uploads

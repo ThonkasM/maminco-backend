@@ -2,9 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
-import { TableStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateTableDto,
@@ -19,11 +17,7 @@ import {
 export class TablesService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Crear nueva mesa
-   */
   async create(createTableDto: CreateTableDto): Promise<TableResponseDto> {
-    // Validar que el área existe
     const area = await this.prisma.area.findUnique({
       where: { id: createTableDto.areaId },
     });
@@ -34,7 +28,6 @@ export class TablesService {
       );
     }
 
-    // Validar que no existe mesa con el mismo número en la misma área
     const existingTable = await this.prisma.table.findUnique({
       where: {
         areaId_number: {
@@ -50,7 +43,6 @@ export class TablesService {
       );
     }
 
-    // Crear mesa
     const table = await this.prisma.table.create({
       data: {
         number: createTableDto.number,
@@ -69,9 +61,6 @@ export class TablesService {
     return new TableResponseDto(table);
   }
 
-  /**
-   * Obtener lista de mesas con paginación y filtros
-   */
   async findAll(
     query: ListTablesQueryDto,
   ): Promise<PaginatedTableResponseDto<TableResponseDto>> {
@@ -107,9 +96,6 @@ export class TablesService {
     return new PaginatedTableResponseDto(tableDtos, total, page, limit);
   }
 
-  /**
-   * Obtener mesa por ID
-   */
   async findById(id: string): Promise<TableResponseDto> {
     const table = await this.prisma.table.findUnique({
       where: { id },
@@ -130,14 +116,10 @@ export class TablesService {
     return new TableResponseDto(table);
   }
 
-  /**
-   * Actualizar mesa
-   */
   async update(
     id: string,
     updateTableDto: UpdateTableDto,
   ): Promise<TableResponseDto> {
-    // Verificar que la mesa existe
     const table = await this.prisma.table.findUnique({
       where: { id },
     });
@@ -146,7 +128,6 @@ export class TablesService {
       throw new NotFoundException(`Table with ID ${id} not found`);
     }
 
-    // Si está cambiando el área, validar que el área existe
     if (updateTableDto.areaId && updateTableDto.areaId !== table.areaId) {
       const area = await this.prisma.area.findUnique({
         where: { id: updateTableDto.areaId },
@@ -159,7 +140,6 @@ export class TablesService {
       }
     }
 
-    // Si está cambiando el número o el área, validar que la combinación sea única
     const newAreaId = updateTableDto.areaId || table.areaId!;
     const newNumber = updateTableDto.number ?? table.number;
 
@@ -184,7 +164,6 @@ export class TablesService {
       }
     }
 
-    // Actualizar mesa
     const updatedTable = await this.prisma.table.update({
       where: { id },
       data: updateTableDto,
@@ -201,14 +180,10 @@ export class TablesService {
     return new TableResponseDto(updatedTable);
   }
 
-  /**
-   * Cambiar estado de la mesa
-   */
   async changeStatus(
     id: string,
     changeStatusDto: ChangeTableStatusDto,
   ): Promise<TableResponseDto> {
-    // Verificar que la mesa existe
     const table = await this.prisma.table.findUnique({
       where: { id },
     });
@@ -216,8 +191,6 @@ export class TablesService {
     if (!table || table.deletedAt) {
       throw new NotFoundException(`Table with ID ${id} not found`);
     }
-
-    // Actualizar estado
     const updatedTable = await this.prisma.table.update({
       where: { id },
       data: { status: changeStatusDto.status },
@@ -234,11 +207,7 @@ export class TablesService {
     return new TableResponseDto(updatedTable);
   }
 
-  /**
-   * Desactivar/Eliminar mesa (soft delete)
-   */
   async deactivate(id: string): Promise<TableResponseDto> {
-    // Verificar que la mesa existe
     const table = await this.prisma.table.findUnique({
       where: { id },
     });
@@ -246,8 +215,6 @@ export class TablesService {
     if (!table || table.deletedAt) {
       throw new NotFoundException(`Table with ID ${id} not found`);
     }
-
-    // Soft delete: establecer deletedAt e isActive = false
     const deletedTable = await this.prisma.table.update({
       where: { id },
       data: {
@@ -267,11 +234,7 @@ export class TablesService {
     return new TableResponseDto(deletedTable);
   }
 
-  /**
-   * Obtener mesas por área
-   */
   async findByAreaId(areaId: string): Promise<TableResponseDto[]> {
-    // Validar que el área existe
     const area = await this.prisma.area.findUnique({
       where: { id: areaId },
     });
@@ -299,9 +262,6 @@ export class TablesService {
     return tables.map((table) => new TableResponseDto(table));
   }
 
-  /**
-   * Obtener estadísticas de mesas
-   */
   async getStats(): Promise<any> {
     const [total, available, occupied, reserved, inactive] = await Promise.all([
       this.prisma.table.count({ where: { deletedAt: null } }),

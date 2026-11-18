@@ -27,20 +27,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class AreasController {
   constructor(private areasService: AreasService) {}
 
-  /**
-   * Obtener todas las áreas activas (sin paginación)
-   * Para usar en selects/dropdowns
-   * Endpoint público - sin autenticación requerida
-   */
   @Get('public/active')
   async getActiveAreas(): Promise<AreaResponseDto[]> {
     return this.areasService.getAllActive();
   }
 
-  /**
-   * Crear nueva área
-   * Solo administradores pueden crear áreas
-   */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -48,10 +39,6 @@ export class AreasController {
     return this.areasService.create(createAreaDto);
   }
 
-  /**
-   * Obtener lista de áreas con paginación
-   * Solo administradores pueden listar áreas
-   */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -61,10 +48,6 @@ export class AreasController {
     return this.areasService.findAll(query);
   }
 
-  /**
-   * Obtener área por ID
-   * Solo administradores
-   */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -74,10 +57,6 @@ export class AreasController {
     return this.areasService.findById(id);
   }
 
-  /**
-   * Actualizar área
-   * Solo administradores
-   */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -88,10 +67,6 @@ export class AreasController {
     return this.areasService.update(id, updateAreaDto);
   }
 
-  /**
-   * Desactivar área (soft delete)
-   * Solo administradores
-   */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)

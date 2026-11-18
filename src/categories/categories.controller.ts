@@ -27,20 +27,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class CategoriesController {
   constructor(private categoriesService: CategoriesService) {}
 
-  /**
-   * Obtener todas las categorías activas (sin paginación)
-   * Para usar en selects/dropdowns
-   * Endpoint público - sin autenticación requerida
-   */
   @Get('public/active')
   async getActiveCategories(): Promise<CategoryResponseDto[]> {
     return this.categoriesService.getAllActive();
   }
 
-  /**
-   * Crear nueva categoría
-   * Solo administradores
-   */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -50,10 +41,6 @@ export class CategoriesController {
     return this.categoriesService.create(createCategoryDto);
   }
 
-  /**
-   * Obtener lista de categorías con paginación
-   * Solo administradores
-   */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -63,10 +50,6 @@ export class CategoriesController {
     return this.categoriesService.findAll(query);
   }
 
-  /**
-   * Obtener categoría por ID
-   * Solo administradores
-   */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -76,10 +59,6 @@ export class CategoriesController {
     return this.categoriesService.findById(id);
   }
 
-  /**
-   * Actualizar categoría
-   * Solo administradores
-   */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)
@@ -90,10 +69,6 @@ export class CategoriesController {
     return this.categoriesService.update(id, updateCategoryDto);
   }
 
-  /**
-   * Desactivar categoría (soft delete)
-   * Solo administradores
-   */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMINISTRATOR)

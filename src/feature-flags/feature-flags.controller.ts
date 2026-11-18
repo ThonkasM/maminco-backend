@@ -10,7 +10,13 @@ class UpdateFeatureFlagDto {
   enabled: boolean;
 }
 
-const ALL_ROLES = ['ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER'] as const;
+const ALL_ROLES = [
+  'ADMINISTRATOR',
+  'MANAGER',
+  'CASHIER',
+  'WAITER',
+  'COOK',
+] as const;
 
 @Controller('api/features')
 @UseGuards(JwtAuthGuard, RolesGuard)

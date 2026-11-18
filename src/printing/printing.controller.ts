@@ -9,14 +9,10 @@ import {
   Query,
 } from '@nestjs/common';
 import { PrintingService } from './printing.service';
-import { PrintOrderDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
-/**
- * Controlador para gestionar impresión de tickets
- */
 @Controller('api/printing')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PrintingController {
@@ -39,44 +35,12 @@ export class PrintingController {
     };
   }
 
-  /**
-   * POST /api/printing/test
-   * Imprimir ticket de prueba
-   *
-   * Body (opcional):
-   * {
-   *   "printerName": "BixolonSRP350"
-   * }
-   */
   @Post('test')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async testPrint(@Body('printerName') printerName?: string) {
     return this.printingService.printTest(printerName);
   }
 
-  /**
-   * POST /api/printing/order
-   * Imprimir orden
-   *
-   * Body:
-   * {
-   *   "orderNumber": "ORD-001",
-   *   "items": [
-   *     {
-   *       "name": "Pato Criollo",
-   *       "quantity": 2,
-   *       "unitPrice": 45.50,
-   *       "subtotal": 91.00
-   *     }
-   *   ],
-   *   "subtotal": 100.00,
-   *   "discount": 0,
-   *   "total": 100.00,
-   *   "table": "5",
-   *   "customerName": "Juan",
-   *   "notes": "Sin ajo"
-   * }
-   */
   @Post('order')
   @Roles('ADMINISTRATOR', 'MANAGER', 'WAITER')
   async printOrder(
@@ -101,14 +65,6 @@ export class PrintingController {
     return this.printingService.printOrder(orderData, printerName);
   }
 
-  /**
-   * POST /api/printing/orders/:orderId
-   * Imprimir una orden desde la base de datos
-   * Busca la orden, sus items y productos, y los imprime automáticamente
-   *
-   * Query params:
-   * - printer: nombre de la impresora (opcional, usa la por defecto si no se especifica)
-   */
   @Post('orders/:orderId')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
   async printOrderFromDatabase(
@@ -118,32 +74,6 @@ export class PrintingController {
     return this.printingService.printOrderFromDatabase(orderId, printerName);
   }
 
-  /**
-   * POST /api/printing/payment-receipt
-   * Imprimir recibo de pago
-   *
-   * Body:
-   * {
-   *   "orderNumber": "000001",
-   *   "items": [
-   *     {
-   *       "name": "Pato Criollo",
-   *       "quantity": 2,
-   *       "unitPrice": 45.50,
-   *       "subtotal": 91.00
-   *     }
-   *   ],
-   *   "orderSubtotal": 100.00,
-   *   "orderDiscount": 0,
-   *   "orderTotal": 100.00,
-   *   "table": "5",
-   *   "paymentMethod": "EFECTIVO",
-   *   "amountReceived": 100.00,
-   *   "amountApplied": 100.00,
-   *   "changeAmount": 0,
-   *   "tipAmount": 0
-   * }
-   */
   @Post('payment-receipt')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async printPaymentReceipt(
@@ -160,13 +90,12 @@ export class PrintingController {
       orderDiscount?: number;
       orderTotal: number;
       table?: string;
-      // Aceptar tanto formato antiguo como nuevo
+      // Accept both the legacy and the current payload format
       paymentMethod?: string;
       amountReceived?: number;
       amountApplied?: number;
       changeAmount?: number;
       tipAmount?: number;
-      // O formato nuevo con múltiples pagos
       payments?: Array<{
         method: string;
         received: number;
@@ -181,7 +110,6 @@ export class PrintingController {
     },
     @Query('printer') printerName?: string,
   ) {
-    // Si usa formato antiguo, convertir a nuevo formato
     if (receiptData.paymentMethod && !receiptData.payments) {
       receiptData.payments = [
         {
@@ -227,14 +155,6 @@ export class PrintingController {
     );
   }
 
-  /**
-   * POST /api/printing/orders/:orderId/payment-receipt
-   * Imprimir recibo de pago desde la base de datos
-   * Busca la orden, sus pagos y genera el recibo automáticamente
-   *
-   * Query params:
-   * - printer: nombre de la impresora (opcional, usa la por defecto si no se especifica)
-   */
   @Post('orders/:orderId/payment-receipt')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async printPaymentReceiptFromDatabase(

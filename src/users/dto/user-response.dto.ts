@@ -1,4 +1,9 @@
-import { UserRole } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
+
+type UserSource = Pick<
+  User,
+  'id' | 'email' | 'name' | 'role' | 'isActive' | 'createdAt' | 'updatedAt'
+>;
 
 export class UserResponseDto {
   id: string;
@@ -9,7 +14,7 @@ export class UserResponseDto {
   createdAt: Date;
   updatedAt: Date;
 
-  constructor(user: any) {
+  constructor(user: UserSource) {
     this.id = user.id;
     this.email = user.email;
     this.name = user.name;

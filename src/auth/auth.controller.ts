@@ -8,24 +8,22 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterFirstAdminDto } from './dto/register-first-admin.dto';
 import { LoginDto } from './dto/login.dto';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /**
-   * POST /api/auth/register-first-admin
-   * Registrar el primer administrador
-   *
-   * Sin autenticación requerida
-   * Solo funciona si la BD está vacía de usuarios
-   */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register-first-admin')
   @HttpCode(HttpStatus.CREATED)
   async registerFirstAdmin(
@@ -34,57 +32,41 @@ export class AuthController {
     return await this.authService.registerFirstAdmin(registerFirstAdminDto);
   }
 
-  /**
-   * POST /api/auth/register
-   * Registrar un nuevo usuario
-   *
-   * Solo administradores pueden registrar usuarios
-   */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @UseGuards(JwtAuthGuard)
-  async register(@Body() registerDto: RegisterDto, @CurrentUser() admin: any) {
-    return await this.authService.register(registerDto, admin.id);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR)
+  async register(@Body() registerDto: RegisterDto) {
+    return await this.authService.register(registerDto);
   }
 
-  /**
-   * POST /api/auth/login
-   * Login de usuario con email y contraseña
-   */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return await this.authService.login(loginDto);
   }
 
-  /**
-   * GET /api/auth/profile
-   * Obtener el perfil del usuario autenticado
-   */
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@CurrentUser() user: any) {
+  async getProfile(@CurrentUser() user: { sub: string }) {
     return await this.authService.getProfile(user.sub);
   }
 
-  /**
-   * PATCH /api/auth/profile
-   * Actualizar el perfil del usuario autenticado
-   */
   @Patch('profile')
   @UseGuards(JwtAuthGuard)
-  async updateProfile(@CurrentUser() user: any, @Body() updateData: any) {
+  async updateProfile(
+    @CurrentUser() user: { sub: string },
+    @Body() updateData: { name?: string },
+  ) {
     return await this.authService.updateProfile(user.sub, updateData);
   }
 
-  /**
-   * POST /api/auth/change-password
-   * Cambiar contraseña del usuario autenticado
-   */
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   async changePassword(
-    @CurrentUser() user: any,
+    @CurrentUser() user: { sub: string },
     @Body() body: { oldPassword: string; newPassword: string },
   ) {
     return await this.authService.changePassword(

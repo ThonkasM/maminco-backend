@@ -15,10 +15,6 @@ import {
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  /**
-   * Reporte dinámico de un rango de fechas (por defecto: hoy), con filtros
-   * opcionales por área y mesa.
-   */
   @Get('summary')
   @Roles('MANAGER', 'ADMINISTRATOR')
   async getSummary(@Query() query: ReportRangeQueryDto) {
@@ -26,7 +22,20 @@ export class ReportsController {
     return { status: 'success', data };
   }
 
-  /** Serie temporal de ventas (por día, semana o mes). */
+  @Get('comparison')
+  @Roles('MANAGER', 'ADMINISTRATOR')
+  async getComparison(@Query() query: ReportRangeQueryDto) {
+    const data = await this.reportsService.getComparison(query);
+    return { status: 'success', data };
+  }
+
+  @Get('heatmap')
+  @Roles('MANAGER', 'ADMINISTRATOR')
+  async getHeatmap(@Query() query: ReportRangeQueryDto) {
+    const data = await this.reportsService.getHeatmap(query);
+    return { status: 'success', data, count: data.length };
+  }
+
   @Get('timeseries')
   @Roles('MANAGER', 'ADMINISTRATOR')
   async getTimeSeries(@Query() query: ReportTimeSeriesQueryDto) {
@@ -34,7 +43,6 @@ export class ReportsController {
     return { status: 'success', data };
   }
 
-  /** Desglose por área, mesa, categoría, método de pago, hora o mesero. */
   @Get('breakdown')
   @Roles('MANAGER', 'ADMINISTRATOR')
   async getBreakdown(@Query() query: ReportBreakdownQueryDto) {
@@ -42,7 +50,6 @@ export class ReportsController {
     return { status: 'success', data, count: data.length };
   }
 
-  /** Productos más vendidos en el rango. */
   @Get('top-products')
   @Roles('MANAGER', 'ADMINISTRATOR')
   async getTopProducts(@Query() query: ReportTopProductsQueryDto) {

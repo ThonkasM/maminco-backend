@@ -1,4 +1,12 @@
-import { TableStatus } from '@prisma/client';
+import { Table, TableStatus } from '@prisma/client';
+
+type TableSource = Pick<
+  Table,
+  'id' | 'number' | 'status' | 'isActive' | 'createdAt' | 'updatedAt' | 'areaId'
+> & {
+  area?: { name: string } | null;
+  _count?: { orders: number };
+};
 
 export class TableResponseDto {
   id: string;
@@ -7,11 +15,11 @@ export class TableResponseDto {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  areaId: string;
+  areaId: string | null;
   areaName?: string; // Nombre del área para comodidad
   ordersCount?: number; // Cantidad de órdenes asociadas
 
-  constructor(table: any) {
+  constructor(table: TableSource) {
     this.id = table.id;
     this.number = table.number;
     this.status = table.status;

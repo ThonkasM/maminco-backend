@@ -12,18 +12,10 @@ export class ChangeOrderStatusDto {
   @IsNotEmpty()
   status: OrderStatus; // DRAFT | CLOSED | CANCELLED
 
-  /**
-   * Si es true y el estado es CLOSED, automáticamente imprime la orden
-   * Default: false
-   */
   @IsOptional()
   @IsBoolean()
   autoPrint?: boolean;
 
-  /**
-   * Nombre de la impresora a usar (opcional)
-   * Si no se proporciona, se usa la impresora por defecto del sistema
-   */
   @IsOptional()
   @IsString()
   printerName?: string;

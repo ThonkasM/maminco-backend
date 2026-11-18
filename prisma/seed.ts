@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 /**
  * Seed para crear:
- * 1. Métodos de pago por defecto (EFECTIVO, TRANSFERENCIA, TARJETA)
+ * 1. Métodos de pago por defecto (Cash, Bank transfer, Card)
  * 2. Denominaciones de efectivo en Bolivianos (1, 2, 5, 10, 20, 50, 100, 200)
  * 3. Usuarios de prueba (uno por rol) para navegar todas las pantallas
  */
@@ -20,22 +20,22 @@ async function main() {
 
         const paymentMethods = [
             {
-                name: 'EFECTIVO',
+                name: 'Cash',
                 code: 'CASH',
                 description:
-                    'Pago en efectivo con monedas y billetes en Bolivianos',
+                    'Cash payment with coins and bills in Bolivianos',
                 isActive: true,
             },
             {
-                name: 'Transferencia',
+                name: 'Bank transfer',
                 code: 'TRANSFER',
-                description: 'Transferencia bancaria o código QR',
+                description: 'Bank transfer or QR code',
                 isActive: true,
             },
             {
-                name: 'TARJETA',
+                name: 'Card',
                 code: 'CARD',
-                description: 'Tarjeta de crédito o débito',
+                description: 'Credit or debit card',
                 isActive: true,
             },
         ];
@@ -164,6 +164,12 @@ async function main() {
                 role: UserRole.WAITER,
                 password: 'Mesero1234',
             },
+            {
+                email: 'cocina@maminco.test',
+                name: 'Cocinero de Prueba',
+                role: UserRole.COOK,
+                password: 'Cocina1234',
+            },
         ];
 
         for (const testUser of testUsers) {
@@ -208,6 +214,20 @@ async function main() {
                 description:
                     'Permite que los meseros ajusten cantidades y quiten productos de una orden. Si se desactiva, se ocultan los botones de + y − en el POS móvil.',
                 enabled: true,
+            },
+            {
+                key: 'digital_kitchen',
+                name: 'Cocina Digitalizada',
+                description:
+                    'Habilita la pantalla de cocina y el rol COOK. Con la flag apagada se mantiene el flujo actual sin cocina.',
+                enabled: false,
+            },
+            {
+                key: 'voice_interaction',
+                name: 'Interacción por voz',
+                description:
+                    'Función experimental: permite dictar órdenes en el POS (mesas y órdenes), por ejemplo «abre la mesa 4 y agrega dos patos criollos». Requiere un navegador con reconocimiento de voz.',
+                enabled: false,
             },
         ];
 

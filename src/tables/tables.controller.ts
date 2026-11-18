@@ -29,10 +29,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class TablesController {
   constructor(private tablesService: TablesService) {}
 
-  /**
-   * Crear nueva mesa
-   * Solo administradores
-   */
   @Post()
   @Roles(UserRole.ADMINISTRATOR)
   async create(
@@ -41,10 +37,6 @@ export class TablesController {
     return this.tablesService.create(createTableDto);
   }
 
-  /**
-   * Obtener lista de mesas con paginación y filtros
-   * Lectura permitida a todo el personal (POS necesita el mapa de mesas)
-   */
   @Get()
   @Roles(
     UserRole.ADMINISTRATOR,
@@ -58,10 +50,6 @@ export class TablesController {
     return this.tablesService.findAll(query);
   }
 
-  /**
-   * Obtener mesa por ID
-   * Lectura permitida a todo el personal
-   */
   @Get(':id')
   @Roles(
     UserRole.ADMINISTRATOR,
@@ -75,10 +63,6 @@ export class TablesController {
     return this.tablesService.findById(id);
   }
 
-  /**
-   * Obtener mesas por área
-   * Lectura permitida a todo el personal
-   */
   @Get('area/:areaId')
   @Roles(
     UserRole.ADMINISTRATOR,
@@ -92,10 +76,6 @@ export class TablesController {
     return this.tablesService.findByAreaId(areaId);
   }
 
-  /**
-   * Actualizar mesa
-   * Solo administradores
-   */
   @Patch(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async update(
@@ -105,11 +85,6 @@ export class TablesController {
     return this.tablesService.update(id, updateTableDto);
   }
 
-  /**
-   * Cambiar estado de la mesa (AVAILABLE, OCCUPIED, RESERVED)
-   * Administradores pueden cambiar siempre
-   * Meseros/Cajeros pueden cambiar para gestionar su trabajo
-   */
   @Patch(':id/status')
   @Roles(
     UserRole.ADMINISTRATOR,
@@ -124,10 +99,6 @@ export class TablesController {
     return this.tablesService.changeStatus(id, changeStatusDto);
   }
 
-  /**
-   * Desactivar mesa (soft delete)
-   * Solo administradores
-   */
   @Delete(':id')
   @Roles(UserRole.ADMINISTRATOR)
   async deactivate(
@@ -136,10 +107,6 @@ export class TablesController {
     return this.tablesService.deactivate(id);
   }
 
-  /**
-   * Obtener estadísticas de mesas
-   * Solo administradores
-   */
   @Get('stats/overview')
   @Roles(UserRole.ADMINISTRATOR)
   async getStats(): Promise<any> {

@@ -1,4 +1,11 @@
-import { ParseUUIDPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  ParseUUIDPipe,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { MAX_UPLOAD_BYTES } from '../media/domain/image-variants';
 import {
   Controller,
   Post,
@@ -26,11 +33,6 @@ import {
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  /**
-   * Obtener todos los productos disponibles (público)
-   * Endpoint para obtener productos para el menú del cliente
-   * Sin autenticación requerida
-   */
   @Get('public/available')
   async getAvailableProducts(
     @Query('categoryId') categoryId?: string,
@@ -40,11 +42,6 @@ export class ProductsController {
     return this.productsService.getAvailableProducts(categoryId, search, limit);
   }
 
-  /**
-   * Obtener disponibilidad de stock de un producto
-   * Endpoint público para verificar si hay stock disponible
-   * Sin autenticación requerida
-   */
   @Get('public/:id/availability') // ✅ Nuevo endpoint público
   async getProductAvailability(
     @Param('id', ParseUUIDPipe) id: string,
@@ -59,6 +56,29 @@ export class ProductsController {
     @Body() createProductDto: CreateProductDto,
   ): Promise<ProductResponseDto> {
     return this.productsService.create(createProductDto);
+  }
+
+  @Post(':id/image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRATOR', 'MANAGER')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }),
+  )
+  uploadImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<ProductResponseDto> {
+    if (!file) throw new BadRequestException('Adjunta una imagen.');
+    return this.productsService.setImage(id, file.buffer);
+  }
+
+  @Delete(':id/image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRATOR', 'MANAGER')
+  removeImage(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ProductResponseDto> {
+    return this.productsService.removeImage(id);
   }
 
   @Get()

@@ -19,12 +19,19 @@ enum UserRole {
   MANAGER
   CASHIER
   WAITER
+  COOK
 }
 
 enum OrderStatus {
-  DRAFT      // Order in progress; items can still be added/removed
-  CLOSED     // Paid order, confirmed sale
-  CANCELLED  // Cancelled order
+  DRAFT // Order in progress; items can still be added/removed
+  CLOSED // Paid order, confirmed sale
+  CANCELLED // Cancelled order
+}
+
+enum OrderKitchenStatus {
+  PENDING // Sent to kitchen, not started
+  PREPARING // Being prepared
+  READY // Ready to be served
 }
 
 enum TableStatus {
@@ -47,29 +54,34 @@ enum AuditAction {
 // ============================================
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String    @id @default(uuid())
+  email     String    @unique
   password  String
   name      String
   role      UserRole
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime? // Soft delete
 
   // Relación opcional con Personal (si el usuario también es empleado)
-  personal  Personal? @relation(fields: [personalId], references: [id])
-  personalId String?  @unique
+  personal   Personal? @relation(fields: [personalId], references: [id])
+  personalId String?   @unique
 
   // Relaciones de auditoría
-  ordersCreated    Order[]           @relation("OrderCreatedBy")
-  ordersAttended   Order[]           @relation("OrderAttendedBy")
-  ordersClosed     Order[]           @relation("OrderClosedBy")
-  paymentsCreated  Payment[]         @relation("PaymentCreatedBy")
-  auditLogs        AuditLog[]
-  staffPayments    StaffPayment[]    @relation("StaffPaymentCreatedBy")
-  orderHistories   OrderHistory[]
-  orderItemsAdded  OrderItem[]       @relation("OrderItemAddedBy")
+  ordersCreated        Order[]               @relation("OrderCreatedBy")
+  ordersAttended       Order[]               @relation("OrderAttendedBy")
+  ordersClosed         Order[]               @relation("OrderClosedBy")
+  paymentsCreated      Payment[]             @relation("PaymentCreatedBy")
+  auditLogs            AuditLog[]
+  staffPayments        StaffPayment[]        @relation("StaffPaymentCreatedBy")
+  orderHistories       OrderHistory[]
+  orderItemsAdded      OrderItem[]           @relation("OrderItemAddedBy")
+  notificationsSent    Notification[]        @relation("NotificationCreatedBy")
+  notificationReceipts NotificationReceipt[]
+  pushSubscriptions    PushSubscription[]
+  dayClosures          DayClosure[]
+  repositoryNodes      RepositoryNode[]
 
   @@index([email])
   @@index([role])
@@ -81,38 +93,38 @@ model User {
 // ============================================
 
 model PersonalType {
-  id          String     @id @default(uuid())
-  name        String     @unique // CASHIER, WAITER, COCINERO, SERVICIO, etc.
+  id          String    @id @default(uuid())
+  name        String    @unique // CASHIER, WAITER, COCINERO, SERVICIO, etc.
   description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  staff       Personal[]
+  staff Personal[]
 
   @@map("personal_types")
 }
 
 model Personal {
-  id            String       @id @default(uuid())
-  name          String
-  phone         String?
-  address       String?
-  hireDate      DateTime     @default(now())
-  isActive      Boolean      @default(true)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  deletedAt     DateTime?
+  id        String    @id @default(uuid())
+  name      String
+  phone     String?
+  address   String?
+  hireDate  DateTime  @default(now())
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   // Tipo de personal (personalizable)
   personalType   PersonalType @relation(fields: [personalTypeId], references: [id])
   personalTypeId String
 
   // Relación opcional con usuario del sistema
-  user           User?
+  user User?
 
   // Pagos realizados a este empleado
-  payments       StaffPayment[]
+  payments StaffPayment[]
 
   @@index([personalTypeId])
   @@index([isActive])
@@ -120,19 +132,19 @@ model Personal {
 }
 
 model StaffPayment {
-  id          String    @id @default(uuid())
-  amount      Decimal   @db.Decimal(10, 2)
-  paymentDate DateTime  @default(now())
+  id          String   @id @default(uuid())
+  amount      Decimal  @db.Decimal(10, 2)
+  paymentDate DateTime @default(now())
   notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Empleado que recibe el pago
-  staff       Personal  @relation(fields: [staffId], references: [id])
-  staffId     String
+  staff   Personal @relation(fields: [staffId], references: [id])
+  staffId String
 
   // Usuario que registra el pago
-  createdBy   User      @relation("StaffPaymentCreatedBy", fields: [createdById], references: [id])
+  createdBy   User   @relation("StaffPaymentCreatedBy", fields: [createdById], references: [id])
   createdById String
 
   @@index([staffId])
@@ -153,7 +165,7 @@ model Category {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  products    Product[]
+  products Product[]
 
   @@map("categories")
 }
@@ -168,7 +180,7 @@ model StockGroup {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  products    Product[]
+  products Product[]
 
   @@map("stock_groups")
 }
@@ -179,24 +191,25 @@ model Product {
   description String?
   price       Decimal   @db.Decimal(10, 2)
   isAvailable Boolean   @default(true) // Disponibilidad temporal
+  imageKey    String? // Storage prefix of the processed image, e.g. products/<id>/<hash>
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   // Categoría del producto
-  category      Category   @relation(fields: [categoryId], references: [id])
-  categoryId    String
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
 
   // Grupo de stock (opcional, para productos que comparten inventario)
-  stockGroup    StockGroup? @relation(fields: [stockGroupId], references: [id])
-  stockGroupId  String?
+  stockGroup   StockGroup? @relation(fields: [stockGroupId], references: [id])
+  stockGroupId String?
 
   // Stock individual (si no pertenece a un grupo)
   individualStock Int?
 
   // Relaciones
-  orderItems    OrderItem[]
+  orderItems         OrderItem[]
   orderItemHistories OrderItemHistory[]
 
   @@index([categoryId])
@@ -219,26 +232,26 @@ model Area {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tables      Table[]
+  tables Table[]
 
   @@map("areas")
 }
 
 model Table {
-  id          String      @id @default(uuid())
-  number      Int         // Número de mesa (puede ser 0 para delivery/recoger)
-  status      TableStatus @default(AVAILABLE)
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
+  id        String      @id @default(uuid())
+  number    Int // Número de mesa (puede ser 0 para delivery/recoger)
+  status    TableStatus @default(AVAILABLE)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
 
   // Área de la mesa
-  area        Area?       @relation(fields: [areaId], references: [id])
-  areaId      String?
+  area   Area?   @relation(fields: [areaId], references: [id])
+  areaId String?
 
   // Pedidos asociados a esta mesa
-  orders      Order[]
+  orders Order[]
 
   @@unique([areaId, number]) // No puede haber dos mesas con el mismo número en la misma área
   @@index([status])
@@ -250,76 +263,80 @@ model Table {
 // ============================================
 
 model Order {
-  id              String       @id @default(uuid())
-  orderNumber     String       @unique // Número de orden correlativo
-  status          OrderStatus  @default(DRAFT)
-  serviceType     String       @default("MESA")  // Heredado de Area.name
-  
+  id            String             @id @default(uuid())
+  orderNumber   String             @unique // Número de orden correlativo
+  status        OrderStatus        @default(DRAFT)
+  kitchenStatus OrderKitchenStatus @default(PENDING) // Estado de preparación (Cocina Digitalizada)
+  serviceType   String             @default("MESA") // Heredado de Area.name
+
   // Montos
-  subtotal        Decimal      @db.Decimal(10, 2) @default(0) // Suma de productos
-  discountAmount  Decimal      @db.Decimal(10, 2) @default(0) // Descuento general
-  tipAmount       Decimal      @db.Decimal(10, 2) @default(0) // Propina (opcional)
-  total           Decimal      @db.Decimal(10, 2) @default(0) // Total a pagar
-  
+  subtotal       Decimal @default(0) @db.Decimal(10, 2) // Suma de productos
+  discountAmount Decimal @default(0) @db.Decimal(10, 2) // Descuento general
+  tipAmount      Decimal @default(0) @db.Decimal(10, 2) // Propina (opcional)
+  total          Decimal @default(0) @db.Decimal(10, 2) // Total a pagar
+
   // Fechas importantes
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  closedAt        DateTime?    // Fecha de cierre (pago completado)
-  deletedAt       DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime? // Fecha de cierre (pago completado)
+  deletedAt DateTime?
 
   // Mesa asociada
-  table           Table        @relation(fields: [tableId], references: [id])
-  tableId         String
+  table   Table  @relation(fields: [tableId], references: [id])
+  tableId String
 
   // Usuario que creó el pedido (mesero o cajero)
-  createdBy       User         @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  createdById     String
+  createdBy   User   @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdById String
 
   // Usuario que atendió (mesero principal)
-  attendedBy      User?        @relation("OrderAttendedBy", fields: [attendedById], references: [id])
-  attendedById    String?
+  attendedBy   User?   @relation("OrderAttendedBy", fields: [attendedById], references: [id])
+  attendedById String?
 
   // Usuario que cerró/cobró el pedido (cajero)
-  closedBy        User?        @relation("OrderClosedBy", fields: [closedById], references: [id])
-  closedById      String?
+  closedBy   User?   @relation("OrderClosedBy", fields: [closedById], references: [id])
+  closedById String?
 
   // Relaciones
-  items           OrderItem[]
-  payments        Payment[]
-  auditLogs       AuditLog[]
-  histories       OrderHistory[]
+  items     OrderItem[]
+  payments  Payment[]
+  auditLogs AuditLog[]
+  histories OrderHistory[]
 
   @@index([status])
+  @@index([kitchenStatus])
   @@index([tableId])
   @@index([createdById])
   @@index([attendedById])
   @@index([closedById])
   @@index([createdAt])
   @@index([serviceType])
+  @@index([status, closedAt])
+  @@index([tableId, status])
   @@map("orders")
 }
 
 model OrderItem {
-  id              String    @id @default(uuid())
-  quantity        Int
-  unitPrice       Decimal   @db.Decimal(10, 2) // Precio al momento de la venta
-  discountAmount  Decimal   @db.Decimal(10, 2) @default(0) // Descuento individual del producto
-  subtotal        Decimal   @db.Decimal(10, 2) // (quantity * unitPrice) - discountAmount
-  notes           String?   // Notas especiales (ej: "sin cebolla")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String   @id @default(uuid())
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(10, 2) // Precio al momento de la venta
+  discountAmount Decimal  @default(0) @db.Decimal(10, 2) // Descuento individual del producto
+  subtotal       Decimal  @db.Decimal(10, 2) // (quantity * unitPrice) - discountAmount
+  notes          String? // Notas especiales (ej: "sin cebolla")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Producto
-  product         Product   @relation(fields: [productId], references: [id])
-  productId       String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
 
   // Pedido
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId         String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
 
   // Auditoría: quién agregó este item
-  addedBy         User      @relation("OrderItemAddedBy", fields: [addedById], references: [id])
-  addedById       String
+  addedBy   User   @relation("OrderItemAddedBy", fields: [addedById], references: [id])
+  addedById String
 
   @@index([orderId])
   @@index([productId])
@@ -333,7 +350,7 @@ model OrderItem {
 
 model PaymentMethod {
   id          String    @id @default(uuid())
-  name        String    @unique // EFECTIVO, TRANSFERENCIA BANCARIA, TARJETA, etc.
+  name        String    @unique // Cash, Bank transfer, Card, etc.
   code        String    @unique // CASH, TRANSFER, CARD - para programación
   description String?
   isActive    Boolean   @default(true)
@@ -341,7 +358,7 @@ model PaymentMethod {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  payments    Payment[]
+  payments Payment[]
 
   @@map("payment_methods")
 }
@@ -351,13 +368,13 @@ model PaymentMethod {
 // ============================================
 
 model CashDenomination {
-  id        String    @id @default(uuid())
-  value     Decimal   @db.Decimal(10, 2) // Valor en Bs: 1, 2, 5, 10, 20, 50, 100, 200
-  type      String    // "COIN" o "BILL"
-  quantity  Int       @default(0) // Cantidad disponible en caja
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  value     Decimal  @db.Decimal(10, 2) // Valor en Bs: 1, 2, 5, 10, 20, 50, 100, 200
+  type      String // "COIN" o "BILL"
+  quantity  Int      @default(0) // Cantidad disponible en caja
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([value, type])
   @@index([isActive])
@@ -365,32 +382,33 @@ model CashDenomination {
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  
+  id String @id @default(uuid())
+
   // Montos
-  amountReceived  Decimal       @db.Decimal(10, 2) // Monto recibido del cliente
-  amountApplied   Decimal       @db.Decimal(10, 2) // Monto aplicado a la cuenta
-  changeAmount    Decimal?      @db.Decimal(10, 2) // Cambio a dar (solo EFECTIVO)
-  tipAmount       Decimal       @db.Decimal(10, 2) @default(0) // Propina incluida
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  amountReceived Decimal  @db.Decimal(10, 2) // Monto recibido del cliente
+  amountApplied  Decimal  @db.Decimal(10, 2) // Monto aplicado a la cuenta
+  changeAmount   Decimal? @db.Decimal(10, 2) // Cambio a dar (solo EFECTIVO)
+  tipAmount      Decimal  @default(0) @db.Decimal(10, 2) // Propina incluida
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Pedido al que pertenece este pago
-  order           Order         @relation(fields: [orderId], references: [id])
-  orderId         String
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
 
   // Método de pago
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId String
 
   // Usuario que registró el pago
-  createdBy       User          @relation("PaymentCreatedBy", fields: [createdById], references: [id])
-  createdById     String
+  createdBy   User   @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  createdById String
 
   @@index([orderId])
   @@index([paymentMethodId])
   @@index([createdById])
+  @@index([orderId, createdAt])
   @@map("payments")
 }
 
@@ -401,20 +419,20 @@ model Payment {
 model AuditLog {
   id          String      @id @default(uuid())
   action      AuditAction
-  tableName   String      // Nombre de la tabla afectada
-  recordId    String      // ID del registro afectado
-  oldValues   Json?       // Valores anteriores (para UPDATE/DELETE)
-  newValues   Json?       // Valores nuevos (para CREATE/UPDATE)
-  description String?     // Descripción legible de la acción
+  tableName   String // Nombre de la tabla afectada
+  recordId    String // ID del registro afectado
+  oldValues   Json? // Valores anteriores (para UPDATE/DELETE)
+  newValues   Json? // Valores nuevos (para CREATE/UPDATE)
+  description String? // Descripción legible de la acción
   createdAt   DateTime    @default(now())
 
   // Usuario que realizó la acción
-  user        User        @relation(fields: [userId], references: [id])
-  userId      String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 
   // Pedido relacionado (si aplica)
-  order       Order?      @relation(fields: [orderId], references: [id])
-  orderId     String?
+  order   Order?  @relation(fields: [orderId], references: [id])
+  orderId String?
 
   @@index([userId])
   @@index([orderId])
@@ -424,19 +442,19 @@ model AuditLog {
 }
 
 model OrderHistory {
-  id          String    @id @default(uuid())
-  action      String    // "ADDED", "REMOVED", "UPDATED", "DISCOUNT_APPLIED"
-  description String    // Descripción legible: "Agregó 2x Pato Criollo"
-  metadata    Json?     // Datos adicionales del cambio
-  createdAt   DateTime  @default(now())
+  id          String   @id @default(uuid())
+  action      String // "ADDED", "REMOVED", "UPDATED", "DISCOUNT_APPLIED"
+  description String // Descripción legible: "Agregó 2x Pato Criollo"
+  metadata    Json? // Datos adicionales del cambio
+  createdAt   DateTime @default(now())
 
   // Pedido afectado
-  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId     String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
 
   // Usuario que realizó el cambio
-  user        User      @relation(fields: [userId], references: [id])
-  userId      String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 
   @@index([orderId])
   @@index([userId])
@@ -445,18 +463,18 @@ model OrderHistory {
 }
 
 model OrderItemHistory {
-  id          String    @id @default(uuid())
-  action      String    // "ADDED", "REMOVED", "QUANTITY_CHANGED"
-  quantity    Int
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  createdAt   DateTime  @default(now())
+  id        String   @id @default(uuid())
+  action    String // "ADDED", "REMOVED", "QUANTITY_CHANGED"
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
 
   // Producto
-  product     Product   @relation(fields: [productId], references: [id])
-  productId   String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
 
   // Referencia al pedido (sin relación directa para evitar complejidad)
-  orderId     String
+  orderId String
 
   @@index([orderId])
   @@index([productId])
@@ -469,31 +487,31 @@ model OrderItemHistory {
 // ============================================
 
 model DailyMetrics {
-  id                  String   @id @default(uuid())
-  date                DateTime @unique @db.Date
-  
+  id   String   @id @default(uuid())
+  date DateTime @unique @db.Date
+
   // Ventas
-  totalSales          Decimal  @db.Decimal(10, 2) @default(0)
-  totalOrders         Int      @default(0)
-  totalDiscount       Decimal  @db.Decimal(10, 2) @default(0)
-  totalTips           Decimal  @db.Decimal(10, 2) @default(0)
-  averageOrderValue   Decimal  @db.Decimal(10, 2) @default(0)
-  
+  totalSales        Decimal @default(0) @db.Decimal(10, 2)
+  totalOrders       Int     @default(0)
+  totalDiscount     Decimal @default(0) @db.Decimal(10, 2)
+  totalTips         Decimal @default(0) @db.Decimal(10, 2)
+  averageOrderValue Decimal @default(0) @db.Decimal(10, 2)
+
   // Servicios
-  mesaOrders          Int      @default(0)
-  deliveryOrders      Int      @default(0)
-  recogerOrders       Int      @default(0)
-  
+  mesaOrders     Int @default(0)
+  deliveryOrders Int @default(0)
+  recogerOrders  Int @default(0)
+
   // Pagos
-  cashPayments        Decimal  @db.Decimal(10, 2) @default(0)
-  cardPayments        Decimal  @db.Decimal(10, 2) @default(0)
-  transferPayments    Decimal  @db.Decimal(10, 2) @default(0)
-  
+  cashPayments     Decimal @default(0) @db.Decimal(10, 2)
+  cardPayments     Decimal @default(0) @db.Decimal(10, 2)
+  transferPayments Decimal @default(0) @db.Decimal(10, 2)
+
   // Staff
-  totalStaffPayments  Decimal  @db.Decimal(10, 2) @default(0)
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  totalStaffPayments Decimal @default(0) @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([date])
   @@map("daily_metrics")
@@ -512,23 +530,23 @@ model ExpenseCategory {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  expenses    Expense[]
+  expenses Expense[]
 
   @@map("expense_categories")
 }
 
 model Expense {
-  id          String          @id @default(uuid())
+  id          String    @id @default(uuid())
   description String
-  amount      Decimal         @db.Decimal(10, 2)
-  expenseDate DateTime        @default(now())
-  receipt     String?         // URL o referencia del comprobante
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  amount      Decimal   @db.Decimal(10, 2)
+  expenseDate DateTime  @default(now())
+  receipt     String? // URL o referencia del comprobante
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
-  categoryId  String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
 
   @@index([categoryId])
   @@index([expenseDate])
@@ -565,4 +583,166 @@ model FeatureFlag {
   updatedAt   DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+// ============================================
+// COMUNICACIÓN: NOTIFICACIONES PUSH
+// ============================================
+
+enum NotificationType {
+  ANNOUNCEMENT
+  PRICE_UPDATE
+  MENU_UPDATE
+  SYSTEM_ALERT
+}
+
+enum PushChannelKind {
+  WEB
+  EXPO
+}
+
+model Notification {
+  id              String           @id @default(uuid())
+  type            NotificationType
+  title           String
+  body            String
+  url             String?
+  data            Json?
+  audienceRoles   UserRole[]
+  audienceUserIds String[]
+  createdAt       DateTime         @default(now())
+
+  createdBy   User?   @relation("NotificationCreatedBy", fields: [createdById], references: [id])
+  createdById String?
+
+  receipts NotificationReceipt[]
+
+  @@index([createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model NotificationReceipt {
+  id             String       @id @default(uuid())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+  @@map("notification_receipts")
+}
+
+model PushSubscription {
+  id        String          @id @default(uuid())
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      PushChannelKind
+  endpoint  String          @unique // Web Push endpoint or Expo push token
+  p256dh    String?
+  auth      String?
+  userAgent String?
+  createdAt DateTime        @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// Automatic notification rules: who receives each kind of system-generated event.
+model NotificationRule {
+  type          NotificationType @id
+  enabled       Boolean          @default(true)
+  audienceRoles UserRole[]
+  updatedAt     DateTime         @updatedAt
+
+  @@map("notification_rules")
+}
+
+// Single-row settings for the public menu (the note shown above the dishes).
+model MenuSetting {
+  id        String   @id @default("default")
+  note      String?
+  updatedAt DateTime @updatedAt
+
+  @@map("menu_settings")
+}
+
+// ============================================
+// TURNOS Y CIERRE DE DÍA
+// ============================================
+
+// A shift is a time-of-day window in the business timezone, in minutes from 00:00.
+// `endMinute <= startMinute` means the shift crosses midnight (e.g. 18:00 -> 06:00).
+model Shift {
+  id          String   @id @default(uuid())
+  name        String
+  startMinute Int
+  endMinute   Int
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("shifts")
+}
+
+// Single row. Sales before this time-of-day belong to the previous business day.
+model BusinessSetting {
+  id                     String   @id @default("default")
+  businessDayStartMinute Int      @default(0)
+  updatedAt              DateTime @updatedAt
+
+  @@map("business_settings")
+}
+
+model DayClosure {
+  id               String   @id @default(uuid())
+  businessDate     String   @unique // YYYY-MM-DD
+  early            Boolean  @default(false) // run before the business day ended
+  regeneratedCount Int      @default(0)
+  totalSales       Decimal  @db.Decimal(12, 2)
+  totalOrders      Int
+  summary          Json
+  documentId       String? // RepositoryNode holding the PDF
+  closedAt         DateTime @default(now())
+
+  closedBy   User?   @relation(fields: [closedById], references: [id])
+  closedById String?
+
+  @@index([closedAt])
+  @@map("day_closures")
+}
+
+// ============================================
+// REPOSITORIO DE DOCUMENTOS
+// ============================================
+
+enum RepositoryNodeKind {
+  FOLDER
+  FILE
+}
+
+// The folder tree lives here; file bytes live in object storage under `reports/<uuid>`.
+model RepositoryNode {
+  id          String             @id @default(uuid())
+  parent      RepositoryNode?    @relation("RepositoryTree", fields: [parentId], references: [id])
+  parentId    String?
+  children    RepositoryNode[]   @relation("RepositoryTree")
+  name        String
+  kind        RepositoryNodeKind
+  system      Boolean            @default(false) // protected: cannot be renamed, moved or deleted
+  mimeType    String?
+  size        Int?
+  storageKey  String?            @unique
+  createdBy   User?              @relation(fields: [createdById], references: [id])
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+
+  @@index([parentId])
+  @@index([deletedAt])
+  @@map("repository_nodes")
 }

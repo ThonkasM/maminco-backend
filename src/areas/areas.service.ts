@@ -16,11 +16,7 @@ import {
 export class AreasService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Crear nueva área
-   */
   async create(createAreaDto: CreateAreaDto): Promise<AreaResponseDto> {
-    // Validar que el nombre no exista
     const existingArea = await this.prisma.area.findUnique({
       where: { name: createAreaDto.name },
     });
@@ -31,7 +27,6 @@ export class AreasService {
       );
     }
 
-    // Crear área
     const area = await this.prisma.area.create({
       data: {
         name: createAreaDto.name,
@@ -43,9 +38,6 @@ export class AreasService {
     return new AreaResponseDto(area);
   }
 
-  /**
-   * Obtener lista de áreas con paginación
-   */
   async findAll(
     query: ListAreasQueryDto,
   ): Promise<PaginatedAreaResponseDto<AreaResponseDto>> {
@@ -75,14 +67,11 @@ export class AreasService {
     ]);
 
     const areaDtos = areas.map(
-      (area) => new AreaResponseDto(area, (area as any)._count?.tables || 0),
+      (area) => new AreaResponseDto(area, area._count.tables),
     );
     return new PaginatedAreaResponseDto(areaDtos, total, page, limit);
   }
 
-  /**
-   * Obtener área por ID
-   */
   async findById(id: string): Promise<AreaResponseDto> {
     const area = await this.prisma.area.findUnique({
       where: { id },
@@ -97,17 +86,13 @@ export class AreasService {
       throw new NotFoundException(`Area with ID ${id} not found`);
     }
 
-    return new AreaResponseDto(area, (area as any)._count?.tables || 0);
+    return new AreaResponseDto(area, area._count.tables);
   }
 
-  /**
-   * Actualizar área
-   */
   async update(
     id: string,
     updateAreaDto: UpdateAreaDto,
   ): Promise<AreaResponseDto> {
-    // Verificar que el área existe
     const area = await this.prisma.area.findUnique({
       where: { id },
     });
@@ -116,7 +101,6 @@ export class AreasService {
       throw new NotFoundException(`Area with ID ${id} not found`);
     }
 
-    // Si está actualizando el nombre, verificar que no exista
     if (updateAreaDto.name && updateAreaDto.name !== area.name) {
       const existingArea = await this.prisma.area.findUnique({
         where: { name: updateAreaDto.name },
@@ -129,7 +113,6 @@ export class AreasService {
       }
     }
 
-    // Actualizar área
     const updatedArea = await this.prisma.area.update({
       where: { id },
       data: updateAreaDto,
@@ -146,11 +129,7 @@ export class AreasService {
     );
   }
 
-  /**
-   * Desactivar/Eliminar área (soft delete)
-   */
   async deactivate(id: string): Promise<AreaResponseDto> {
-    // Verificar que el área existe
     const area = await this.prisma.area.findUnique({
       where: { id },
     });
@@ -158,8 +137,6 @@ export class AreasService {
     if (!area || area.deletedAt) {
       throw new NotFoundException(`Area with ID ${id} not found`);
     }
-
-    // Soft delete: establecer deletedAt e isActive = false
     const deletedArea = await this.prisma.area.update({
       where: { id },
       data: {
@@ -179,10 +156,6 @@ export class AreasService {
     );
   }
 
-  /**
-   * Obtener todas las áreas activas (sin paginación)
-   * Útil para select/dropdown en UI
-   */
   async getAllActive(): Promise<AreaResponseDto[]> {
     const areas = await this.prisma.area.findMany({
       where: {
@@ -197,8 +170,6 @@ export class AreasService {
       orderBy: { name: 'asc' },
     });
 
-    return areas.map(
-      (area) => new AreaResponseDto(area, (area as any)._count?.tables || 0),
-    );
+    return areas.map((area) => new AreaResponseDto(area, area._count.tables));
   }
 }

@@ -9,9 +9,6 @@ export class AppService {
     return 'Hello World!';
   }
 
-  /**
-   * Obtiene estadísticas básicas de la base de datos
-   */
   async getDbStats() {
     const [users, categories, products, areas, tables, orders] =
       await Promise.all([

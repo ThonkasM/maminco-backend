@@ -1,4 +1,4 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderKitchenStatus, OrderStatus } from '@prisma/client';
 
 export class OrderItemResponseDto {
   id: string;
@@ -8,7 +8,7 @@ export class OrderItemResponseDto {
   unitPrice: number;
   discountAmount: number;
   subtotal: number;
-  notes?: string;
+  notes?: string | null;
   addedById: string;
   addedByName: string;
   createdAt: Date;
@@ -18,33 +18,25 @@ export class OrderResponseDto {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  kitchenStatus: OrderKitchenStatus;
   serviceType: string; // Area.name
-
-  // Montos
   subtotal: number;
   discountAmount: number;
   tipAmount: number;
   total: number;
 
-  // Mesa
   tableId: string;
   tableName: string;
   areaId: string;
-
-  // Usuarios
   createdById: string;
   createdByName: string;
-  attendedById?: string;
+  attendedById?: string | null;
   attendedByName?: string;
-  closedById?: string;
+  closedById?: string | null;
   closedByName?: string;
-
-  // Items
   items: OrderItemResponseDto[];
   itemCount: number;
-
-  // Timestamps
   createdAt: Date;
   updatedAt: Date;
-  closedAt?: Date;
+  closedAt?: Date | null;
 }

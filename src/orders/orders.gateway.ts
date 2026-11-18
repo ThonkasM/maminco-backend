@@ -6,16 +6,12 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Inject, Logger, forwardRef } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import { OrdersService } from './orders.service';
+import { Logger } from '@nestjs/common';
+import { SocketUser, WsAuthService } from '../auth/ws-auth.service';
+import { OrdersQueryService } from './application/orders-query.service';
 
-interface SocketUser {
-  id: string;
-  name?: string;
-  role?: string;
-}
+import { OrderResponseDto } from './dto';
+import type { TableState } from './application/ports/order-query.repository';
 
 @WebSocketGateway({ namespace: 'orders' })
 export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -25,48 +21,18 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger('OrdersGateway');
 
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => OrdersService))
-    private readonly ordersService: OrdersService,
+    private readonly wsAuth: WsAuthService,
+    private readonly ordersQuery: OrdersQueryService,
   ) {}
 
   async handleConnection(socket: Socket) {
     try {
-      const token = socket.handshake.auth?.token;
-      if (!token) {
+      const user = await this.wsAuth.authenticate(socket);
+      if (!user) {
         socket.disconnect();
         return;
       }
-
-      const payload = this.jwtService.verify<{ sub: string }>(token);
-      if (!payload?.sub) {
-        socket.disconnect();
-        return;
-      }
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          isActive: true,
-          deletedAt: true,
-        },
-      });
-
-      if (!user || !user.isActive || user.deletedAt) {
-        socket.disconnect();
-        return;
-      }
-
-      const socketUser: SocketUser = {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-      };
-      socket.data.user = socketUser;
+      socket.data.user = user;
       this.logger.log(`Usuario conectado: ${user.name} (${user.id})`);
     } catch (error) {
       this.logger.warn(
@@ -91,19 +57,37 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return sockets?.size ?? 0;
   }
 
-  emitOrderCreated(tableId: string, order: any) {
-    this.server.to(`table-${tableId}`).emit('order:created', {
+  emitOrderCreated(
+    tableId: string,
+    order: Pick<
+      OrderResponseDto,
+      'id' | 'orderNumber' | 'createdByName' | 'status' | 'createdAt'
+    >,
+  ) {
+    const payload = {
       orderId: order.id,
       orderNumber: order.orderNumber,
       tableId,
       createdByName: order.createdByName,
       status: order.status,
       createdAt: order.createdAt,
-    });
+    };
+    this.server.to(`table-${tableId}`).emit('order:created', payload);
+    this.server.to('kitchen').emit('order:created', payload);
   }
 
-  emitOrderItemAdded(orderId: string, tableId: string, item: any) {
-    this.server.to(`table-${tableId}`).emit('order:item:added', {
+  emitOrderItemAdded(
+    orderId: string,
+    tableId: string,
+    item: {
+      id: string;
+      productName: string;
+      quantity: number;
+      addedByName: string;
+      unitPrice: number;
+    },
+  ) {
+    const payload = {
       orderId,
       tableId,
       itemId: item.id,
@@ -111,7 +95,9 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       quantity: item.quantity,
       addedByName: item.addedByName,
       unitPrice: item.unitPrice,
-    });
+    };
+    this.server.to(`table-${tableId}`).emit('order:item:added', payload);
+    this.server.to('kitchen').emit('order:item:added', payload);
   }
 
   emitOrderItemRemoved(
@@ -120,12 +106,9 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     itemId: string,
     productName: string,
   ) {
-    this.server.to(`table-${tableId}`).emit('order:item:removed', {
-      orderId,
-      tableId,
-      itemId,
-      productName,
-    });
+    const payload = { orderId, tableId, itemId, productName };
+    this.server.to(`table-${tableId}`).emit('order:item:removed', payload);
+    this.server.to('kitchen').emit('order:item:removed', payload);
   }
 
   emitOrderItemUpdated(
@@ -136,22 +119,34 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     subtotal: number,
     updatedByName: string,
   ) {
-    this.server.to(`table-${tableId}`).emit('order:item:updated', {
+    const payload = {
       orderId,
       tableId,
       itemId,
       quantity,
       subtotal,
       updatedByName,
-    });
+    };
+    this.server.to(`table-${tableId}`).emit('order:item:updated', payload);
+    this.server.to('kitchen').emit('order:item:updated', payload);
   }
 
   emitOrderStatusChanged(orderId: string, tableId: string, newStatus: string) {
-    this.server.to(`table-${tableId}`).emit('order:status:changed', {
-      orderId,
-      tableId,
-      newStatus,
-    });
+    const payload = { orderId, tableId, newStatus };
+    this.server.to(`table-${tableId}`).emit('order:status:changed', payload);
+    this.server.to('kitchen').emit('order:status:changed', payload);
+  }
+
+  emitKitchenStatusChanged(
+    orderId: string,
+    tableId: string,
+    kitchenStatus: string,
+  ) {
+    const payload = { orderId, tableId, kitchenStatus };
+    this.server.to('kitchen').emit('order:kitchen-status:changed', payload);
+    this.server
+      .to(`table-${tableId}`)
+      .emit('order:kitchen-status:changed', payload);
   }
 
   emitOrderUpdated(
@@ -170,7 +165,10 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  emitTableStateUpdated(tableId: string, tableState: any) {
+  emitTableStateUpdated(
+    tableId: string,
+    tableState: OrderResponseDto | TableState,
+  ) {
     this.server.to(`table-${tableId}`).emit('table:state:updated', {
       tableId,
       orderState: tableState,
@@ -178,7 +176,16 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  emitTableStatusChanged(tableId: string, tableStatus: string, tableData: any) {
+  emitTableStatusChanged(
+    tableId: string,
+    tableStatus: string,
+    tableData: {
+      number?: number | string;
+      tableName?: string;
+      areaId?: string;
+      areaName?: string;
+    },
+  ) {
     this.server.to('tables:status').emit('tables:status:changed', {
       tableId,
       status: tableStatus,
@@ -189,7 +196,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  emitAllTablesState(tablesState: any[]) {
+  emitAllTablesState(tablesState: TableState[]) {
     this.server.to('tables:status').emit('tables:state:snapshot', {
       tables: tablesState.map((table) => ({
         id: table.id,
@@ -207,25 +214,25 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join:table')
-  handleJoinTable(socket: Socket, tableId: unknown) {
+  async handleJoinTable(socket: Socket, tableId: unknown) {
     if (typeof tableId !== 'string' || !tableId) return;
-    socket.join(`table-${tableId}`);
+    await socket.join(`table-${tableId}`);
   }
 
   @SubscribeMessage('leave:table')
-  handleLeaveTable(socket: Socket, tableId: unknown) {
+  async handleLeaveTable(socket: Socket, tableId: unknown) {
     if (typeof tableId !== 'string' || !tableId) return;
-    socket.leave(`table-${tableId}`);
+    await socket.leave(`table-${tableId}`);
   }
 
   @SubscribeMessage('subscribe:tables:status')
   async handleSubscribeTablesStatus(socket: Socket) {
-    socket.join('tables:status');
+    await socket.join('tables:status');
     // Send the current state to the newly subscribed client. Non-admin roles
     // (manager, cashier, waiter) cannot read `GET /api/tables`, so this initial
     // snapshot is their only source for the table list.
     try {
-      const tables = await this.ordersService.getAllTablesState();
+      const tables = await this.ordersQuery.getAllTablesState();
       socket.emit('tables:state:snapshot', {
         tables,
         timestamp: new Date().toISOString(),
@@ -239,7 +246,29 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('unsubscribe:tables:status')
-  handleUnsubscribeTablesStatus(socket: Socket) {
-    socket.leave('tables:status');
+  async handleUnsubscribeTablesStatus(socket: Socket) {
+    await socket.leave('tables:status');
+  }
+
+  @SubscribeMessage('subscribe:kitchen')
+  async handleSubscribeKitchen(socket: Socket) {
+    await socket.join('kitchen');
+    try {
+      const orders = await this.ordersQuery.getKitchenOrders();
+      socket.emit('kitchen:orders:snapshot', {
+        orders,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error(
+        'No se pudo enviar el snapshot inicial de cocina',
+        error as Error,
+      );
+    }
+  }
+
+  @SubscribeMessage('unsubscribe:kitchen')
+  async handleUnsubscribeKitchen(socket: Socket) {
+    await socket.leave('kitchen');
   }
 }
