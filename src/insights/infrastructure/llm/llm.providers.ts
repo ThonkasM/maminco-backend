@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { LlmPort } from '../../application/ports/llm.port';
@@ -29,6 +30,7 @@ const opencode: ProviderFactory = (config) => {
     timeoutMs: Number(config.get<string>('OPENCODE_TIMEOUT_MS') ?? 60000),
     external: true,
     userAgent: 'maminco-insights/1.0',
+    headers: { 'x-opencode-session': randomUUID() },
   });
 };
 
