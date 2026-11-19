@@ -43,11 +43,17 @@ async function bootstrap() {
     }),
   );
 
-  SwaggerModule.setup(
-    'api/docs',
-    app,
-    SwaggerModule.createDocument(app, buildSwaggerConfig()),
-  );
+  const swaggerEnabled =
+    process.env.SWAGGER_ENABLED !== undefined
+      ? process.env.SWAGGER_ENABLED === 'true'
+      : process.env.NODE_ENV !== 'production';
+  if (swaggerEnabled) {
+    SwaggerModule.setup(
+      'api/docs',
+      app,
+      SwaggerModule.createDocument(app, buildSwaggerConfig()),
+    );
+  }
 
   if (process.env.STORAGE_DRIVER !== 's3') {
     // Only product images are public. `uploads/reports` (documents) is never mounted here.
