@@ -6,13 +6,17 @@ function setup(found: object | null) {
   const prisma = {
     cashDenomination: {
       findUnique: jest.fn().mockResolvedValue(found),
-      update: jest.fn().mockImplementation(async ({ data }) => ({
-        id: 'd1',
-        value: new Prisma.Decimal(10),
-        type: 'BILL',
-        quantity: data.quantity,
-        isActive: true,
-      })),
+      update: jest
+        .fn()
+        .mockImplementation(({ data }: { data: { quantity: number } }) =>
+          Promise.resolve({
+            id: 'd1',
+            value: new Prisma.Decimal(10),
+            type: 'BILL',
+            quantity: data.quantity,
+            isActive: true,
+          }),
+        ),
     },
   };
   return {
