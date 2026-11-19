@@ -42,3 +42,7 @@ export interface PrintResult {
   success: boolean;
   message: string;
 }
+
+export interface RenderedTicket extends PrintResult {
+  data?: string;
+}

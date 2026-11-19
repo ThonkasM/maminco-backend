@@ -14,6 +14,7 @@ import {
   PaymentReceiptData,
   PrintResult,
   ReceiptPayment,
+  RenderedTicket,
   TicketItem,
 } from './domain/ticket.types';
 import {
@@ -58,7 +59,10 @@ export class PrintingService {
     return defaultPrinter;
   }
 
-  private failure(context: string, error: unknown): PrintResult {
+  private failure(
+    context: string,
+    error: unknown,
+  ): PrintResult & { data?: never } {
     this.logger.error(context, error);
     return {
       success: false,
@@ -103,47 +107,78 @@ export class PrintingService {
     }
   }
 
+  private async loadOrderTicket(
+    orderId: string,
+  ): Promise<{ data: OrderTicketData } | { error: string }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { product: true } },
+        table: { include: { area: true } },
+      },
+    });
+
+    if (!order) {
+      return { error: `Orden con ID ${orderId} no encontrada` };
+    }
+
+    if (order.items.length === 0) {
+      return {
+        error: `La orden #${order.orderNumber} no tiene items para imprimir`,
+      };
+    }
+
+    return {
+      data: {
+        orderNumber: order.orderNumber,
+        items: this.toTicketItems(order.items),
+        subtotal: Number(order.subtotal),
+        discount: Number(order.discountAmount),
+        total: Number(order.total),
+        table: order.table?.number?.toString() || 'Sin mesa',
+      },
+    };
+  }
+
   async printOrderFromDatabase(
     orderId: string,
     printerName?: string,
   ): Promise<PrintResult> {
     try {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          items: { include: { product: true } },
-          table: { include: { area: true } },
-        },
-      });
-
-      if (!order) {
-        return {
-          success: false,
-          message: `Orden con ID ${orderId} no encontrada`,
-        };
+      const loaded = await this.loadOrderTicket(orderId);
+      if ('error' in loaded) {
+        return { success: false, message: loaded.error };
       }
-
-      if (order.items.length === 0) {
-        return {
-          success: false,
-          message: `La orden #${order.orderNumber} no tiene items para imprimir`,
-        };
-      }
-
-      return this.printOrder(
-        {
-          orderNumber: order.orderNumber,
-          items: this.toTicketItems(order.items),
-          subtotal: Number(order.subtotal),
-          discount: Number(order.discountAmount),
-          total: Number(order.total),
-          table: order.table?.number?.toString() || 'Sin mesa',
-        },
-        printerName,
-      );
+      return this.printOrder(loaded.data, printerName);
     } catch (error) {
       return this.failure('Error imprimiendo orden desde BD:', error);
     }
+  }
+
+  async renderOrderFromDatabase(orderId: string): Promise<RenderedTicket> {
+    try {
+      const loaded = await this.loadOrderTicket(orderId);
+      if ('error' in loaded) {
+        return { success: false, message: loaded.error };
+      }
+      return this.rendered(
+        formatOrderTicket(loaded.data, new Date()),
+        `Orden #${loaded.data.orderNumber} lista para imprimir`,
+      );
+    } catch (error) {
+      return this.failure('Error generando ticket de orden:', error);
+    }
+  }
+
+  renderTest(): RenderedTicket {
+    return this.rendered(
+      formatTestTicket(new Date()),
+      'Ticket de prueba generado',
+    );
+  }
+
+  private rendered(data: Buffer, message: string): RenderedTicket {
+    return { success: true, message, data: data.toString('base64') };
   }
 
   async printPaymentReceipt(
@@ -166,77 +201,96 @@ export class PrintingService {
     }
   }
 
+  private async loadReceipt(
+    orderId: string,
+  ): Promise<{ data: PaymentReceiptData } | { error: string }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { product: true } },
+        table: { include: { area: true } },
+        payments: {
+          include: { paymentMethod: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!order) {
+      return { error: `Orden con ID ${orderId} no encontrada` };
+    }
+
+    if (order.items.length === 0) {
+      return { error: `La orden #${order.orderNumber} no tiene items` };
+    }
+
+    if (order.payments.length === 0) {
+      return {
+        error: `La orden #${order.orderNumber} no tiene pagos registrados. Debes registrar los pagos ANTES de cerrar la orden. Flujo correcto: 1) Registrar pago(s) con POST /api/payments/orders/{orderId}, 2) Cerrar orden, 3) Imprimir recibo.`,
+      };
+    }
+
+    const payments: ReceiptPayment[] = order.payments.map((payment) => ({
+      method: paymentMethodLabel(
+        payment.paymentMethod.code,
+        payment.paymentMethod.name,
+      ),
+      received: Number(payment.amountReceived),
+      applied: Number(payment.amountApplied),
+      change: payment.changeAmount ? Number(payment.changeAmount) : undefined,
+      tip: payment.tipAmount ? Number(payment.tipAmount) : undefined,
+    }));
+
+    this.logger.log(
+      `Preparando recibo con ${payments.length} pago(s): ${payments.map((p) => p.method).join(', ')}`,
+    );
+
+    return {
+      data: {
+        orderNumber: order.orderNumber,
+        items: this.toTicketItems(order.items),
+        orderSubtotal: Number(order.subtotal),
+        orderDiscount: Number(order.discountAmount),
+        orderTotal: Number(order.total),
+        table: order.table?.number?.toString() || 'Sin mesa',
+        payments,
+        totalReceived: sum(payments.map((p) => p.received)),
+        totalApplied: sum(payments.map((p) => p.applied)),
+        totalChange: sum(payments.map((p) => p.change ?? 0)),
+        totalTip: sum(payments.map((p) => p.tip ?? 0)),
+      },
+    };
+  }
+
   async printPaymentReceiptFromDatabase(
     orderId: string,
     printerName?: string,
   ): Promise<PrintResult> {
     try {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          items: { include: { product: true } },
-          table: { include: { area: true } },
-          payments: {
-            include: { paymentMethod: true },
-            orderBy: { createdAt: 'asc' },
-          },
-        },
-      });
-
-      if (!order) {
-        return {
-          success: false,
-          message: `Orden con ID ${orderId} no encontrada`,
-        };
+      const loaded = await this.loadReceipt(orderId);
+      if ('error' in loaded) {
+        return { success: false, message: loaded.error };
       }
-
-      if (order.items.length === 0) {
-        return {
-          success: false,
-          message: `La orden #${order.orderNumber} no tiene items`,
-        };
-      }
-
-      if (order.payments.length === 0) {
-        return {
-          success: false,
-          message: `La orden #${order.orderNumber} no tiene pagos registrados. Debes registrar los pagos ANTES de cerrar la orden. Flujo correcto: 1) Registrar pago(s) con POST /api/payments/orders/{orderId}, 2) Cerrar orden, 3) Imprimir recibo.`,
-        };
-      }
-
-      const payments: ReceiptPayment[] = order.payments.map((payment) => ({
-        method: paymentMethodLabel(
-          payment.paymentMethod.code,
-          payment.paymentMethod.name,
-        ),
-        received: Number(payment.amountReceived),
-        applied: Number(payment.amountApplied),
-        change: payment.changeAmount ? Number(payment.changeAmount) : undefined,
-        tip: payment.tipAmount ? Number(payment.tipAmount) : undefined,
-      }));
-
-      this.logger.log(
-        `Imprimiendo recibo con ${payments.length} pago(s): ${payments.map((p) => p.method).join(', ')}`,
-      );
-
-      return this.printPaymentReceipt(
-        {
-          orderNumber: order.orderNumber,
-          items: this.toTicketItems(order.items),
-          orderSubtotal: Number(order.subtotal),
-          orderDiscount: Number(order.discountAmount),
-          orderTotal: Number(order.total),
-          table: order.table?.number?.toString() || 'Sin mesa',
-          payments,
-          totalReceived: sum(payments.map((p) => p.received)),
-          totalApplied: sum(payments.map((p) => p.applied)),
-          totalChange: sum(payments.map((p) => p.change ?? 0)),
-          totalTip: sum(payments.map((p) => p.tip ?? 0)),
-        },
-        printerName,
-      );
+      return this.printPaymentReceipt(loaded.data, printerName);
     } catch (error) {
       return this.failure('Error imprimiendo recibo de pago desde BD:', error);
+    }
+  }
+
+  async renderPaymentReceiptFromDatabase(
+    orderId: string,
+  ): Promise<RenderedTicket> {
+    try {
+      const loaded = await this.loadReceipt(orderId);
+      if ('error' in loaded) {
+        return { success: false, message: loaded.error };
+      }
+      return this.rendered(
+        formatPaymentReceipt(loaded.data, new Date()),
+        `Recibo de la orden #${loaded.data.orderNumber} listo para imprimir`,
+      );
+    } catch (error) {
+      return this.failure('Error generando recibo de pago:', error);
     }
   }
 

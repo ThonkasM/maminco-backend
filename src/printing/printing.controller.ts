@@ -35,6 +35,24 @@ export class PrintingController {
     };
   }
 
+  @Get('test/escpos')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
+  testEscpos() {
+    return this.printingService.renderTest();
+  }
+
+  @Get('orders/:orderId/escpos')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER', 'WAITER')
+  async orderEscpos(@Param('orderId', ParseUUIDPipe) orderId: string) {
+    return this.printingService.renderOrderFromDatabase(orderId);
+  }
+
+  @Get('orders/:orderId/payment-receipt/escpos')
+  @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
+  async paymentReceiptEscpos(@Param('orderId', ParseUUIDPipe) orderId: string) {
+    return this.printingService.renderPaymentReceiptFromDatabase(orderId);
+  }
+
   @Post('test')
   @Roles('ADMINISTRATOR', 'MANAGER', 'CASHIER')
   async testPrint(@Body('printerName') printerName?: string) {

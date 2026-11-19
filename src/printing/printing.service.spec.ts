@@ -57,4 +57,51 @@ describe('PrintingService', () => {
     });
     expect(send).not.toHaveBeenCalled();
   });
+
+  it('renders the test ticket as base64 ESC/POS', () => {
+    const result = service.renderTest();
+    expect(result.success).toBe(true);
+    expect(Buffer.from(result.data ?? '', 'base64').length).toBeGreaterThan(10);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('renders an order ticket from the database without a printer', async () => {
+    findUnique.mockResolvedValue({
+      orderNumber: '7',
+      subtotal: 10,
+      discountAmount: 0,
+      total: 10,
+      table: { number: 3 },
+      items: [
+        { quantity: 1, unitPrice: 10, subtotal: 10, product: { name: 'Café' } },
+      ],
+    });
+    const result = await service.renderOrderFromDatabase('id-1');
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual(expect.any(String));
+    expect(listPrinters).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('reports missing orders when rendering a ticket', async () => {
+    findUnique.mockResolvedValue(null);
+    const result = await service.renderOrderFromDatabase('id-1');
+    expect(result).toEqual({
+      success: false,
+      message: 'Orden con ID id-1 no encontrada',
+    });
+  });
+
+  it('refuses to render a receipt for an order without payments', async () => {
+    findUnique.mockResolvedValue({
+      orderNumber: '7',
+      items: [
+        { quantity: 1, unitPrice: 1, subtotal: 1, product: { name: 'x' } },
+      ],
+      payments: [],
+    });
+    const result = await service.renderPaymentReceiptFromDatabase('id-1');
+    expect(result.success).toBe(false);
+    expect(result.data).toBeUndefined();
+  });
 });
