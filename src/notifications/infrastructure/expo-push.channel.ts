@@ -28,6 +28,8 @@ export class ExpoPushChannel implements PushChannel {
           body: message.body,
           data: { url: message.url, notificationId: message.notificationId },
           sound: 'default',
+          channelId: 'default',
+          priority: 'high',
         }),
       });
       if (!response.ok) return 'failed';
