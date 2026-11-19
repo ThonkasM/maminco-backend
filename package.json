@@ -104,5 +104,9 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "form-data": "^2.5.4",
+    "deepmerge-ts": "^8.0.0"
   }
 }
