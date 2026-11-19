@@ -10,32 +10,163 @@ const UTC_OFFSET_HOURS = 4;
 const OVERSHOOT = 1.04;
 
 type DayKind = 'TUE_FRI' | 'SAT' | 'SUN';
+type Group = 'PATO' | 'CARNE' | 'OTROS' | 'DRINK' | 'JARRA';
 
 interface Dish {
   name: string;
   price: number;
-  drink: boolean;
+  group: Group;
   weights: Record<DayKind, number>;
 }
 
 const CATALOG: Dish[] = [
-  { name: 'PATO CRIOLLO', price: 250, drink: false, weights: { TUE_FRI: 10, SAT: 16, SUN: 24 } },
-  { name: 'PATO MANDARÍN', price: 250, drink: false, weights: { TUE_FRI: 8, SAT: 12, SUN: 18 } },
-  { name: 'PATO CANTONESA', price: 250, drink: false, weights: { TUE_FRI: 4, SAT: 8, SUN: 12 } },
-  { name: 'PATO BBQ', price: 260, drink: false, weights: { TUE_FRI: 3, SAT: 6, SUN: 10 } },
-  { name: 'PATO LIMEÑA', price: 270, drink: false, weights: { TUE_FRI: 2, SAT: 4, SUN: 7 } },
-  { name: 'CUADRIL PERSONAL', price: 100, drink: false, weights: { TUE_FRI: 14, SAT: 10, SUN: 6 } },
-  { name: 'COSTILLAS DE CERDO', price: 70, drink: false, weights: { TUE_FRI: 16, SAT: 10, SUN: 6 } },
-  { name: 'ALITAS DE POLLO', price: 40, drink: false, weights: { TUE_FRI: 16, SAT: 10, SUN: 5 } },
-  { name: 'GASEOSA', price: 12, drink: true, weights: { TUE_FRI: 22, SAT: 18, SUN: 14 } },
-  { name: 'JARRA LIMONADA', price: 30, drink: true, weights: { TUE_FRI: 12, SAT: 12, SUN: 12 } },
-  { name: 'GASEOSA FAMILIAR', price: 25, drink: true, weights: { TUE_FRI: 10, SAT: 12, SUN: 14 } },
+  {
+    name: 'PATO CRIOLLO',
+    price: 280,
+    group: 'PATO',
+    weights: { TUE_FRI: 10, SAT: 16, SUN: 24 },
+  },
+  {
+    name: 'PATO MANDARÍN',
+    price: 280,
+    group: 'PATO',
+    weights: { TUE_FRI: 8, SAT: 12, SUN: 18 },
+  },
+  {
+    name: 'PATO CANTONESA',
+    price: 280,
+    group: 'PATO',
+    weights: { TUE_FRI: 4, SAT: 8, SUN: 12 },
+  },
+  {
+    name: 'PATO BBQ',
+    price: 290,
+    group: 'PATO',
+    weights: { TUE_FRI: 3, SAT: 6, SUN: 10 },
+  },
+  {
+    name: 'PATO LIMEÑA',
+    price: 300,
+    group: 'PATO',
+    weights: { TUE_FRI: 2, SAT: 4, SUN: 7 },
+  },
+  {
+    name: 'CUADRIL (PERSONAL)',
+    price: 100,
+    group: 'CARNE',
+    weights: { TUE_FRI: 14, SAT: 10, SUN: 5 },
+  },
+  {
+    name: 'PACUMUTO (PERSONAL)',
+    price: 100,
+    group: 'CARNE',
+    weights: { TUE_FRI: 10, SAT: 8, SUN: 4 },
+  },
+  {
+    name: 'BIFE CHORIZO',
+    price: 100,
+    group: 'CARNE',
+    weights: { TUE_FRI: 10, SAT: 8, SUN: 4 },
+  },
+  {
+    name: 'COSTILLAS DE CERDO (MANDARÍN O BBQ)',
+    price: 70,
+    group: 'OTROS',
+    weights: { TUE_FRI: 14, SAT: 8, SUN: 4 },
+  },
+  {
+    name: 'ALITAS DE POLLO',
+    price: 40,
+    group: 'OTROS',
+    weights: { TUE_FRI: 14, SAT: 8, SUN: 3 },
+  },
+  {
+    name: 'PORCIÓN EXTRA (YUCA/PLÁTANO/ARROZ)',
+    price: 10,
+    group: 'OTROS',
+    weights: { TUE_FRI: 4, SAT: 4, SUN: 6 },
+  },
+  {
+    name: 'GASEOSA PERSONAL',
+    price: 12,
+    group: 'DRINK',
+    weights: { TUE_FRI: 24, SAT: 18, SUN: 8 },
+  },
+  {
+    name: 'VITAL',
+    price: 10,
+    group: 'DRINK',
+    weights: { TUE_FRI: 10, SAT: 8, SUN: 4 },
+  },
+  {
+    name: 'MEDIA JARRA LIMONADA',
+    price: 15,
+    group: 'DRINK',
+    weights: { TUE_FRI: 8, SAT: 6, SUN: 2 },
+  },
+  {
+    name: 'MEDIA JARRA MOCOCHINCHI',
+    price: 20,
+    group: 'DRINK',
+    weights: { TUE_FRI: 6, SAT: 5, SUN: 2 },
+  },
+  {
+    name: 'MEDIA JARRA MARACUYÁ',
+    price: 20,
+    group: 'DRINK',
+    weights: { TUE_FRI: 6, SAT: 5, SUN: 2 },
+  },
+  {
+    name: 'JARRA LIMONADA',
+    price: 30,
+    group: 'JARRA',
+    weights: { TUE_FRI: 4, SAT: 12, SUN: 20 },
+  },
+  {
+    name: 'JARRA MOCOCHINCHI',
+    price: 40,
+    group: 'JARRA',
+    weights: { TUE_FRI: 3, SAT: 10, SUN: 18 },
+  },
+  {
+    name: 'JARRA MARACUYÁ',
+    price: 40,
+    group: 'JARRA',
+    weights: { TUE_FRI: 3, SAT: 10, SUN: 18 },
+  },
+  {
+    name: 'GASEOSA FAMILIAR',
+    price: 25,
+    group: 'JARRA',
+    weights: { TUE_FRI: 4, SAT: 12, SUN: 20 },
+  },
+  {
+    name: 'HUARI',
+    price: 30,
+    group: 'JARRA',
+    weights: { TUE_FRI: 2, SAT: 6, SUN: 10 },
+  },
 ];
 
+const BASKET_MIX: Record<DayKind, number[]> = {
+  TUE_FRI: [70, 25, 5],
+  SAT: [40, 40, 20],
+  SUN: [10, 30, 60],
+};
+
 const HOURS: Record<DayKind, { hours: number[]; weights: number[] }> = {
-  TUE_FRI: { hours: [12, 13, 14, 19, 20, 21], weights: [16, 24, 14, 12, 18, 8] },
-  SAT: { hours: [12, 13, 14, 19, 20, 21, 22], weights: [10, 14, 10, 16, 24, 18, 8] },
-  SUN: { hours: [11, 12, 13, 14, 15, 16, 18, 19], weights: [8, 24, 28, 22, 12, 6, 6, 4] },
+  TUE_FRI: {
+    hours: [12, 13, 14, 19, 20, 21],
+    weights: [16, 24, 14, 12, 18, 8],
+  },
+  SAT: {
+    hours: [12, 13, 14, 19, 20, 21, 22],
+    weights: [10, 14, 10, 16, 24, 18, 8],
+  },
+  SUN: {
+    hours: [11, 12, 13, 14, 15, 16, 18, 19],
+    weights: [8, 24, 28, 22, 12, 6, 6, 4],
+  },
 };
 
 function mulberry32(seed: number) {
@@ -92,19 +223,61 @@ interface Basket {
   subtotal: number;
 }
 
+function pickGroup(
+  catalog: ResolvedDish[],
+  kind: DayKind,
+  groups: Group[],
+): ResolvedDish {
+  const pool = catalog.filter((entry) => groups.includes(entry.dish.group));
+  return pick(
+    pool,
+    pool.map((entry) => entry.dish.weights[kind]),
+  );
+}
+
 function buildBasket(catalog: ResolvedDish[], kind: DayKind): Basket {
-  const lineCount =
-    kind === 'SUN' ? int(2, 5) : kind === 'SAT' ? int(1, 3) : int(1, 2);
-  const weights = catalog.map((entry) => entry.dish.weights[kind]);
-  const lines: Basket['lines'] = [];
-  let subtotal = 0;
-  for (let i = 0; i < lineCount; i++) {
-    const entry = pick(catalog, weights);
-    const max = entry.dish.drink ? 3 : kind === 'SUN' ? 3 : 2;
-    const quantity = int(1, max);
-    lines.push({ entry, quantity });
-    subtotal += quantity * entry.dish.price;
+  const size = pick(['SOLO', 'PAREJA', 'FAMILIAR'], BASKET_MIX[kind]);
+  const quantities = new Map<
+    string,
+    { entry: ResolvedDish; quantity: number }
+  >();
+  const add = (entry: ResolvedDish, quantity = 1) => {
+    const current = quantities.get(entry.id);
+    if (current) current.quantity += quantity;
+    else quantities.set(entry.id, { entry, quantity });
+  };
+
+  if (size === 'SOLO') {
+    add(pickGroup(catalog, kind, ['PATO', 'CARNE', 'OTROS']));
+    add(pickGroup(catalog, kind, ['DRINK']));
+  } else if (size === 'PAREJA') {
+    for (let i = 0; i < 2; i++) {
+      add(pickGroup(catalog, kind, ['PATO', 'CARNE', 'OTROS']));
+    }
+    add(pickGroup(catalog, kind, ['DRINK', 'JARRA']));
+    if (rand() < 0.5) add(pickGroup(catalog, kind, ['DRINK']));
+  } else {
+    const mains = int(3, 6);
+    for (let i = 0; i < mains; i++) {
+      add(pickGroup(catalog, kind, ['PATO', 'PATO', 'CARNE', 'OTROS']));
+    }
+    const drinks = int(2, 4);
+    for (let i = 0; i < drinks; i++) {
+      add(pickGroup(catalog, kind, ['JARRA', 'JARRA', 'DRINK']));
+    }
+    if (rand() < 0.4) {
+      const extra = catalog.find((entry) =>
+        entry.dish.name.startsWith('PORCIÓN'),
+      );
+      if (extra) add(extra, int(1, 3));
+    }
   }
+
+  const lines = [...quantities.values()];
+  const subtotal = lines.reduce(
+    (sum, line) => sum + line.quantity * line.entry.dish.price,
+    0,
+  );
   return { lines, subtotal };
 }
 
@@ -145,52 +318,45 @@ async function clean() {
   );
 }
 
-async function resolveCategory(
-  name: string,
-  reference: { categoryId: string } | undefined,
-) {
-  if (reference) return reference.categoryId;
-  const existing = await prisma.category.findFirst({
-    where: { name, deletedAt: null },
-  });
-  if (existing) return existing.id;
-  const created = await prisma.category.create({
-    data: { name, description: DEMO_MARK },
-  });
-  return created.id;
-}
-
 async function ensureCatalog(): Promise<ResolvedDish[]> {
   const existing = await prisma.product.findMany({
     where: { deletedAt: null },
   });
   const byName = new Map(existing.map((product) => [product.name, product]));
-  const foodRef = byName.get('PATO CRIOLLO');
-  const drinkRef = byName.get('GASEOSA');
-  const foodCategory = await resolveCategory('PLATOS', foodRef);
-  const drinkCategory = await resolveCategory('BEBIDAS', drinkRef);
-
-  const resolved: ResolvedDish[] = [];
-  for (const dish of CATALOG) {
-    const found = byName.get(dish.name);
-    if (found) {
-      resolved.push({
-        dish: { ...dish, price: Number(found.price) },
-        id: found.id,
-      });
-      continue;
-    }
-    const created = await prisma.product.create({
-      data: {
-        name: dish.name,
-        description: DEMO_MARK,
-        price: new Prisma.Decimal(dish.price),
-        categoryId: dish.drink ? drinkCategory : foodCategory,
-      },
-    });
-    resolved.push({ dish, id: created.id });
+  const missing = CATALOG.filter((dish) => !byName.has(dish.name));
+  if (missing.length) {
+    throw new Error(
+      `Faltan productos del menú (${missing.map((dish) => dish.name).join(', ')}). Ejecuta primero: npm run seed:menu`,
+    );
   }
-  return resolved;
+  return CATALOG.map((dish) => {
+    const product = byName.get(dish.name)!;
+    return { dish: { ...dish, price: Number(product.price) }, id: product.id };
+  });
+}
+
+async function ensureVenue() {
+  const existing = await prisma.table.count({
+    where: { deletedAt: null, isActive: true },
+  });
+  if (existing > 0) return;
+  const layout = [
+    { name: 'SALÓN', tables: 8 },
+    { name: 'EXTERIOR', tables: 4 },
+  ];
+  for (const entry of layout) {
+    const area =
+      (await prisma.area.findFirst({ where: { name: entry.name } })) ??
+      (await prisma.area.create({ data: { name: entry.name } }));
+    for (let number = 1; number <= entry.tables; number++) {
+      await prisma.table.upsert({
+        where: { areaId_number: { areaId: area.id, number } },
+        update: { deletedAt: null, isActive: true },
+        create: { areaId: area.id, number },
+      });
+    }
+  }
+  console.log('Áreas y mesas creadas (SALÓN 1-8, EXTERIOR 1-4).');
 }
 
 async function insertChunks<T>(
@@ -212,6 +378,7 @@ async function main() {
   await clean();
 
   const catalog = await ensureCatalog();
+  await ensureVenue();
   const tables = await prisma.table.findMany({
     where: { deletedAt: null, isActive: true },
     include: { area: true },
@@ -229,7 +396,9 @@ async function main() {
 
   const methodByCode = new Map(methods.map((method) => [method.code, method]));
   const now = new Date();
-  const todayKey = localDateKey(new Date(now.getTime() - UTC_OFFSET_HOURS * 3600000));
+  const todayKey = localDateKey(
+    new Date(now.getTime() - UTC_OFFSET_HOURS * 3600000),
+  );
 
   const orders: Prisma.OrderCreateManyInput[] = [];
   const items: Prisma.OrderItemCreateManyInput[] = [];
@@ -318,7 +487,8 @@ async function main() {
         createdById: cashier.id,
         amountReceived: new Prisma.Decimal(received),
         amountApplied: new Prisma.Decimal(total),
-        changeAmount: code === 'CASH' ? new Prisma.Decimal(received - total) : null,
+        changeAmount:
+          code === 'CASH' ? new Prisma.Decimal(received - total) : null,
         tipAmount: new Prisma.Decimal(0),
         createdAt: closedAt,
       });
